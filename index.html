@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DISTO Rilievo</title>
+<style>
+  :root { --bg:#fff; --fg:#14181f; --muted:#5b6575; --line:#cfd6e0; --accent:#1263d6; --ok:#0a6b3d; --bad:#b3261e; --warn:#a85200; --panel:#f3f6fa; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1319; --fg:#e8edf4; --muted:#9aa6b6; --line:#2b3441; --accent:#6aa7ff; --ok:#5fd394; --bad:#ff8a80; --warn:#ffb86b; --panel:#171d26; } }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  body { padding:10px 16px calc(24px + env(safe-area-inset-bottom)); max-width:1400px; margin:0 auto; }
+  h1 { font-size:18px; margin:0; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  button { font:inherit; font-weight:600; color:var(--fg); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; touch-action:manipulation; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.mode.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.station { border-color:var(--warn); }
+  button:disabled { opacity:.45; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; align-items:center; }
+  .row label { color:var(--muted); font-size:14px; }
+  input[type=text] { font:inherit; width:90px; padding:9px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); }
+  #hint { font-weight:700; color:var(--accent); font-size:17px; margin:8px 0 2px; }
+  #status { color:var(--muted); min-height:1.4em; }
+  #status.ok { color:var(--ok); } #status.bad { color:var(--bad); font-weight:600; }
+  #summary { font-weight:700; color:var(--ok); min-height:1.4em; margin:2px 0 6px; }
+  #wrap { display:grid; grid-template-columns:1fr 340px; gap:10px; }
+  @media (max-width:820px) { #wrap { grid-template-columns:1fr; } }
+  canvas { width:100%; height:58vh; min-height:300px; border:1px solid var(--line); border-radius:10px; background:var(--bg); display:block; }
+  pre { margin:0; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--panel); font:13px/1.45 ui-monospace,Menlo,Consolas,monospace; overflow:auto; max-height:58vh; white-space:pre; }
+  footer { margin-top:10px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DISTO Rilievo</h1>
+  <div class="row" style="margin:0">
+    <button id="bConn" class="primary">Collega Disto</button>
+  </div>
+</header>
+
+<div class="row">
+  <button id="bUndo">Annulla ultimo</button>
+  <button id="bClose">Chiudi poligono</button>
+  <button id="bRoom">Nuova stanza</button>
+  <button id="bDxf">Esporta DXF</button>
+  <button id="bSave">Salva</button>
+  <button id="bOpen">Apri</button>
+  <button id="bClear">Azzera</button>
+</div>
+<div class="row" id="modes"></div>
+<div class="row">
+  <button id="bStation" class="station">Nuova stazione</button>
+  <button id="bSkip" disabled>Salta riferimento</button>
+  <label>Altezza strumento (m)</label><input id="hvar" type="text" inputmode="decimal" autocomplete="off">
+  <span id="stlabel" style="font-weight:700;color:var(--warn)"></span>
+</div>
+
+<div id="hint"></div>
+<div id="status">Non collegato</div>
+<div id="summary"></div>
+
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <pre id="lst"></pre>
+</div>
+<footer>
+  <button id="bAll" style="min-height:36px;font-weight:500">Collega: mostra tutti i dispositivi</button>
+  <button id="bDemo" style="min-height:36px;font-weight:500">Prova senza Disto (demo)</button>
+  <input id="fileIn" type="file" accept=".json,application/json" hidden>
+</footer>
+
+<script>
+"use strict";
+const SERVICE = "3ab10100-f831-4395-b29d-570977d5bf94";
+const U = n => "3ab10" + n + "-f831-4395-b29d-570977d5bf94";
+const ENABLE = ["10d","10f","110","111","112","121","122"];
+const MODES = [["plan","Pianta"],["floor","Pavimento"],["ceil","Altezza soffitto"],["window","Finestra"],["door","Porta"],["refs","Riferimenti"]];
+const WSTEPS = ["FINESTRA - punta lo spigolo SINISTRO (1/4)","FINESTRA - punta lo spigolo DESTRO (2/4)","FINESTRA - punta il DAVANZALE, cioè il parapetto (3/4)","FINESTRA - punta il bordo ALTO (4/4)"];
+const DSTEPS = ["PORTA - punta lo spigolo SINISTRO (1/3)","PORTA - punta lo spigolo DESTRO (2/3)","PORTA - punta il bordo ALTO (3/3)"];
+const HINTS = {floor:"PAVIMENTO - punta un punto sul pavimento: ricavo l'altezza dello strumento", ceil:"ALTEZZA - punta un punto sul soffitto (es. spigolo alto)"};
+const $ = id => document.getElementById(id);
+
+/* ---------- stato ---------- */
+const newRoom = () => ({pts:[], closed:false});
+const newStation = () => ({theta:0, t:[0,0], tz:0, res:null});
+let S = {rooms:[newRoom()], ceil:[], open:[], refs:[], stations:[newStation()], hvar:""};
+let stat = null, partial = null, undo = [], mode = "plan";
+
+/* ---------- geometria ---------- */
+const dist2 = (a,b) => Math.hypot(b[0]-a[0], b[1]-a[1]);
+function proj(p,a,b){ const dx=b[0]-a[0], dy=b[1]-a[1], l2=dx*dx+dy*dy; if(!l2) return a;
+  const t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l2)); return [a[0]+t*dx, a[1]+t*dy]; }
+function areaM2(pts){ let s=0; for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; s+=a[0]*b[1]-b[0]*a[1]; } return Math.abs(s)/2/1e6; }
+function inside(pt,poly){ let res=false; const [x,y]=pt;
+  for(let i=0;i<poly.length;i++){ const [x1,y1]=poly[i], [x2,y2]=poly[(i+1)%poly.length];
+    if((y1>y)!==(y2>y) && x < (x2-x1)*(y-y1)/(y2-y1)+x1) res=!res; } return res; }
+function toXYZ(m){ const d=m.d*1000, r=d*Math.sin(m.z), h=-m.h; return [r*Math.cos(h), r*Math.sin(h), d*Math.cos(m.z)]; }
+function solveStation(pairs){
+  const n=pairs.length; let lcx=0,lcy=0,gcx=0,gcy=0;
+  for(const [l,g] of pairs){ lcx+=l[0]; lcy+=l[1]; gcx+=g[0]; gcy+=g[1]; }
+  lcx/=n; lcy/=n; gcx/=n; gcy/=n; let sd=0, sc=0;
+  for(const [l,g] of pairs){ const lx=l[0]-lcx, ly=l[1]-lcy, gx=g[0]-gcx, gy=g[1]-gcy; sd+=lx*gx+ly*gy; sc+=lx*gy-ly*gx; }
+  const th=Math.atan2(sc,sd), c=Math.cos(th), s=Math.sin(th);
+  const tx=gcx-(c*lcx-s*lcy), ty=gcy-(s*lcx+c*lcy);
+  const tz=pairs.reduce((a,[l,g])=>a+g[2]-l[2],0)/n;
+  const res=pairs.map(([l,g])=>Math.sqrt((c*l[0]-s*l[1]+tx-g[0])**2+(s*l[0]+c*l[1]+ty-g[1])**2+(l[2]+tz-g[2])**2));
+  return {theta:th, t:[tx,ty], tz, res};
+}
+function apply(p){ const s=S.stations[S.stations.length-1], c=Math.cos(s.theta), sn=Math.sin(s.theta);
+  return [c*p[0]-sn*p[1]+s.t[0], sn*p[0]+c*p[1]+s.t[1], p[2]+s.tz]; }
+function tf(p){ const flat=[]; for(const r of S.rooms) for(const q of r.pts) flat.push(q.p);
+  if(!flat.length) return [p[0],p[1]]; const o=flat[0];
+  if(flat.length<2) return [p[0]-o[0], p[1]-o[1]];
+  const th=Math.atan2(flat[1][1]-o[1], flat[1][0]-o[0]), c=Math.cos(-th), s=Math.sin(-th), ax=p[0]-o[0], ay=p[1]-o[1];
+  return [ax*c-ay*s, ax*s+ay*c]; }
+function geometry(){ const out=[];
+  S.rooms.forEach((room,ri)=>{ if(!room.pts.length) return;
+    const pts=room.pts.map(r=>tf(r.p)), closed=room.closed && pts.length>2, segs=[];
+    for(let i=0;i<pts.length-1;i++) segs.push([pts[i],pts[i+1]]);
+    if(closed) segs.push([pts[pts.length-1], pts[0]]);
+    out.push({ri, pts, segs, closed}); });
+  return out; }
+function roomHeight(g){ if(!g.closed) return null;
+  const near = q => inside(q,g.pts) || g.pts.some((_,i)=>dist2(q, proj(q,g.pts[i],g.pts[(i+1)%g.pts.length]))<150);
+  const hs=S.ceil.filter(c=>near(tf(c.p))).map(c=>c.h); return hs.length? hs.reduce((a,b)=>a+b,0)/hs.length : null; }
+function openingGeom(o, allsegs){ let a=tf(o.a), b=tf(o.b);
+  if(allsegs.length){ const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    let best=null, bd=1e18; for(const sg of allsegs){ const d=dist2(mid, proj(mid,sg[0],sg[1])); if(d<bd){bd=d; best=sg;} }
+    a=proj(a,best[0],best[1]); b=proj(b,best[0],best[1]); }
+  return [a,b]; }
+const olabel = (i,o) => (o.kind==="window"?"F":"P") + S.open.slice(0,i+1).filter(x=>x.kind===o.kind).length;
+const plabel = (ri,i,multi) => multi ? (ri+1)+"."+(i+1) : String(i+1);
+const stationXY = s => tf([s.t[0], s.t[1], 0]);
+const hstrum = () => { const v=parseFloat(String(S.hvar).replace(",", ".")); return isNaN(v)?null:v; };
+const f2 = x => x.toFixed(2), f3 = x => x.toFixed(3);
+
+/* ---------- messaggi ---------- */
+function ok(t){ const e=$("status"); e.textContent=t; e.className="ok"; }
+function warn(t){ const e=$("status"); e.textContent=t; e.className="bad"; }
+function info(t){ const e=$("status"); e.textContent=t; e.className=""; }
+
+/* ---------- modalità ---------- */
+function setMode(m){ mode=m; document.querySelectorAll("button.mode").forEach(b=>b.classList.toggle("on", b.dataset.m===m)); }
+function cancelStation(){ if(stat){ stat=null; undo=undo.filter(k=>k[0]!=="sref"); $("bStation").textContent="Nuova stazione"; $("bSkip").disabled=true; } }
+function onMode(m){ cancelStation(); partial=null; undo=undo.filter(k=>k[0]!=="partial"); setMode(m); setHint(); refresh(); }
+function setHint(){ let t; const n=S.stations.length;
+  if(stat) t="STAZIONE "+(n+1)+" - punta il RIFERIMENTO R"+(stat.k+1)+" ("+(stat.k+1)+" di "+S.refs.length+"). Con almeno 2 puoi premere «Calcola stazione».";
+  else if(mode==="plan"){ const cur=S.rooms[S.rooms.length-1];
+    if(cur.closed||!cur.pts.length) t="PIANTA - STANZA "+(S.rooms.length+(cur.closed?1:0))+": punta gli spigoli (anche in alto: i punti vanno a quota 0)";
+    else t="PIANTA - STANZA "+S.rooms.length+": punto "+(cur.pts.length+1)+". Punta lo spigolo successivo"; }
+  else if(mode==="refs") t="RIFERIMENTI - punta un punto FISSO e ben visibile anche da altre posizioni (R"+(S.refs.length+1)+"). Ne servono almeno 2, meglio 3 o più, ben distanziati.";
+  else if(HINTS[mode]) t=HINTS[mode];
+  else t=(mode==="window"?WSTEPS:DSTEPS)[partial?partial.steps.length:0];
+  $("hint").textContent=t; $("stlabel").textContent="Stazione attiva: S"+n; }
+
+/* ---------- stazioni ---------- */
+function stationBtn(){
+  if(stat){ finishStation(); return; }
+  if(S.refs.length<2){ warn("Prima servono almeno 2 riferimenti: usa «Riferimenti» e punta 2-3 punti fissi."); return; }
+  partial=null; undo=undo.filter(k=>k[0]!=="partial"); stat={k:0, meas:[]}; setMode("");
+  $("bStation").textContent="Calcola stazione"; $("bSkip").disabled=false;
+  ok("Sposta il Disto e mettilo in bolla sulla base. Poi punta i riferimenti nell'ordine."); setHint(); refresh(); }
+function skipRef(){ if(!stat) return; stat.k++; if(stat.k>=S.refs.length) finishStation(); else setHint(); }
+function statMeasure(pl){
+  if(stat.k>=S.refs.length){ warn("Hai già misurato tutti i riferimenti: premi «Calcola stazione»."); return; }
+  stat.meas.push([stat.k, pl]); undo.push(["sref"]); ok("Riferimento R"+(stat.k+1)+" misurato dalla nuova posizione."); stat.k++;
+  if(stat.k>=S.refs.length) finishStation(); else { setHint(); refresh(); } }
+function finishStation(){
+  if(stat.meas.length<2){ warn("Servono almeno 2 riferimenti misurati dalla nuova posizione."); return; }
+  const sol=solveStation(stat.meas.map(([i,pl])=>[pl, S.refs[i]]));
+  stat=null; undo=undo.filter(k=>k[0]!=="sref"); S.stations.push(sol); undo.push(["station"]);
+  $("bStation").textContent="Nuova stazione"; $("bSkip").disabled=true; setMode("plan");
+  const mx=Math.max(...sol.res); let msg="Stazione "+S.stations.length+" calcolata con "+sol.res.length+" riferimenti. Scarto massimo "+mx.toFixed(0)+" mm.";
+  if(sol.res.length===2) msg+=" (con 2 riferimenti non c'è controllo: meglio 3)";
+  if(mx>15) warn(msg+" ATTENZIONE: scarto alto, controlla di aver puntato gli stessi punti («Annulla ultimo» per rifare)."); else ok(msg+" Puoi continuare a misurare.");
+  setHint(); refresh(); }
+
+/* ---------- misure ---------- */
+function onMeasure(m){
+  const pl=toXYZ(m);
+  if(stat){ statMeasure(pl); return; }
+  const p=apply(pl), H=hstrum();
+  if(mode==="plan"){
+    if(S.rooms[S.rooms.length-1].closed) S.rooms.push(newRoom());
+    const r=S.rooms[S.rooms.length-1]; r.pts.push({p, d:m.d}); undo.push(["room", S.rooms.length-1]);
+    ok("Stanza "+S.rooms.length+" - punto "+r.pts.length+" registrato ("+f3(m.d)+" m)"); }
+  else if(mode==="refs"){ S.refs.push(p); undo.push(["ref"]); ok("Riferimento R"+S.refs.length+" registrato. Ne servono almeno 2 (meglio 3)."); }
+  else if(mode==="floor"){ S.hvar=f3(-p[2]/1000); $("hvar").value=S.hvar; ok("Altezza strumento da terra = "+S.hvar+" m"); }
+  else if(H===null){ warn("Prima serve l'altezza dello strumento: usa «Pavimento» (punta il pavimento) o scrivila in alto."); return; }
+  else if(mode==="ceil"){ const h=p[2]/1000+H; S.ceil.push({p, h}); undo.push(["ceil"]); ok("Altezza soffitto = "+f3(h)+" m"); }
+  else openingStep(mode, p, H);
+  setHint(); refresh(); }
+function openingStep(kind, p, H){
+  const need=kind==="window"?4:3, pt=partial||{kind, steps:[]}, step=pt.steps.length;
+  pt.steps.push(step<2? p : p[2]/1000+H); partial=pt; undo.push(["partial"]);
+  if(pt.steps.length<need){ ok("Punto registrato."); return; }
+  const s=pt.steps; let sill, top;
+  if(kind==="window"){ sill=Math.min(s[2],s[3]); top=Math.max(s[2],s[3]); } else { sill=0; top=s[2]; }
+  S.open.push({kind, a:s[0], b:s[1], sill, top});
+  while(undo.length && undo[undo.length-1][0]==="partial") undo.pop();
+  undo.push(["open"]); partial=null; ok((kind==="window"?"Finestra":"Porta")+" aggiunta: altezza "+f2(top-sill)+" m."); }
+function trimRooms(){ while(S.rooms.length>1 && !S.rooms[S.rooms.length-1].pts.length) S.rooms.pop(); }
+function undoLast(){
+  if(stat && stat.meas.length){ stat.meas.pop(); const i=undo.findIndex(k=>k[0]==="sref"); if(i>=0) undo.splice(i,1);
+    stat.k = stat.meas.length ? stat.meas[stat.meas.length-1][0]+1 : 0; setHint(); return; }
+  if(!undo.length) return; const k=undo.pop();
+  if(k[0]==="room"){ const r=S.rooms[k[1]]; r.pts.pop(); r.closed=false; trimRooms(); }
+  else if(k[0]==="ceil") S.ceil.pop(); else if(k[0]==="open") S.open.pop(); else if(k[0]==="ref") S.refs.pop();
+  else if(k[0]==="station"){ if(S.stations.length>1) S.stations.pop(); }
+  else if(k[0]==="partial" && partial){ partial.steps.pop(); if(!partial.steps.length) partial=null; }
+  setHint(); refresh(); }
+function clearAll(){
+  if((S.open.length||S.ceil.length||S.refs.length||S.rooms.some(r=>r.pts.length)) && !confirm("Cancello tutto il rilievo?")) return;
+  cancelStation(); S={rooms:[newRoom()], ceil:[], open:[], refs:[], stations:[newStation()], hvar:S.hvar};
+  partial=null; undo=[]; setMode("plan"); setHint(); refresh(); }
+function toggleClose(){ trimRooms(); const r=S.rooms[S.rooms.length-1];
+  if(r.pts.length<3){ warn("Servono almeno 3 punti per chiudere il poligono."); return; }
+  r.closed=!r.closed; setHint(); refresh(); }
+function newRoomBtn(){ if(S.rooms[S.rooms.length-1].pts.length){ S.rooms.push(newRoom()); onMode("plan"); ok("Pronto per la stanza "+S.rooms.length+"."); } }
+
+/* ---------- elenco e riepilogo ---------- */
+function refresh(){
+  const geo=geometry(), allsegs=geo.flatMap(g=>g.segs), multi=geo.length>1, H=hstrum(), L=[];
+  L.push("== STAZIONI ==");
+  S.stations.forEach((s,i)=>{ const [x,y]=stationXY(s); L.push(" S"+(i+1)+" X="+f3(x/1000)+" Y="+f3(y/1000)+(s.res?"  scarto max "+Math.max(...s.res).toFixed(0)+" mm":"")); });
+  if(S.refs.length){ L.push("== RIFERIMENTI =="); S.refs.forEach((r,i)=>{ const [x,y]=tf(r); L.push(" R"+(i+1)+" X="+f3(x/1000)+" Y="+f3(y/1000)); }); }
+  for(const g of geo){ const rh=roomHeight(g); let head="== STANZA "+(g.ri+1)+" ==";
+    if(g.closed){ head+="  "+f2(areaM2(g.pts))+" m2"; if(rh) head+="  H "+f2(rh); } L.push(head);
+    S.rooms[g.ri].pts.forEach((r,i)=>L.push(" "+plabel(g.ri,i,multi).padEnd(4)+" X="+f3(g.pts[i][0]/1000)+" Y="+f3(g.pts[i][1]/1000)+(H===null?"":"  h="+f2(r.p[2]/1000+H)))); }
+  if(S.ceil.length){ L.push("== ALTEZZE =="); S.ceil.forEach((c,i)=>L.push(" "+(i+1)+": "+f3(c.h)+" m")); }
+  if(S.open.length){ L.push("== FINESTRE / PORTE =="); S.open.forEach((o,i)=>{ const [a,b]=openingGeom(o,allsegs);
+    L.push(" "+olabel(i,o)+" L="+f2(dist2(a,b)/1000)+" H="+f2(o.top-o.sill)+" terra "+f2(o.sill)); }); }
+  $("lst").textContent=L.join("\n");
+  let txt=""; if(geo.length){ const g=geo[geo.length-1], per=g.segs.reduce((a,s)=>a+dist2(s[0],s[1]),0);
+    txt="Stanza "+(g.ri+1)+": "+g.pts.length+" punti"; if(g.pts.length>1) txt+=(g.closed?"   perimetro ":"   lunghezza ")+f2(per/1000)+" m";
+    if(g.closed){ const ar=areaM2(g.pts), rh=roomHeight(g); txt+="   area "+f2(ar)+" m2"; if(rh) txt+="   H "+f2(rh)+" m   volume "+f2(ar*rh)+" m3"; }
+    const closed=geo.filter(x=>x.closed); if(closed.length>1) txt+="  |  TOTALE area "+f2(closed.reduce((a,x)=>a+areaM2(x.pts),0))+" m2"; }
+  $("summary").textContent=txt; redraw(); save_local(); }
+
+/* ---------- disegno ---------- */
+function redraw(){
+  const cv=$("cv"), dpr=window.devicePixelRatio||1, W=cv.clientWidth, Hh=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(Hh*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(Hh*dpr); }
+  const c=cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,Hh);
+  const css=getComputedStyle(document.documentElement), FG=css.getPropertyValue("--fg").trim(), MUT=css.getPropertyValue("--muted").trim();
+  const geo=geometry(), allsegs=geo.flatMap(g=>g.segs), multi=geo.length>1;
+  const og=S.open.map(o=>openingGeom(o,allsegs)), sxy=S.stations.map(stationXY), rxy=S.refs.map(tf);
+  let all=[...geo.flatMap(g=>g.pts), ...og.flat(), ...S.ceil.map(k=>tf(k.p)), ...sxy, ...rxy];
+  if(partial) all=all.concat(partial.steps.slice(0,2).map(tf));
+  c.textBaseline="middle";
+  if(!all.length){ c.fillStyle=MUT; c.font="16px system-ui"; c.textAlign="center";
+    c.fillText("Collega il Disto e misura i punti.", W/2, Hh/2-12); c.fillText("Punto 1 = origine, lato 1-2 = asse X.", W/2, Hh/2+12); return; }
+  const xs=all.map(p=>p[0]), ys=all.map(p=>p[1]);
+  const bw=Math.max(Math.max(...xs)-Math.min(...xs),500), bh=Math.max(Math.max(...ys)-Math.min(...ys),500);
+  const sc=Math.min((W-90)/bw,(Hh-90)/bh), cx=(Math.max(...xs)+Math.min(...xs))/2, cy=(Math.max(...ys)+Math.min(...ys))/2;
+  const T=p=>[W/2+(p[0]-cx)*sc, Hh/2-(p[1]-cy)*sc];
+  for(const g of geo) if(g.closed){ c.beginPath(); g.pts.forEach((p,i)=>{ const [x,y]=T(p); i?c.lineTo(x,y):c.moveTo(x,y); }); c.closePath(); c.fillStyle="rgba(80,140,255,.13)"; c.fill(); }
+  c.textAlign="center";
+  for(const g of geo){
+    for(const [a,b] of g.segs){ const [x1,y1]=T(a), [x2,y2]=T(b); c.strokeStyle=FG; c.lineWidth=2; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+      c.fillStyle="#c2570c"; c.font="bold 12px system-ui"; c.fillText(f3(dist2(a,b)/1000),(x1+x2)/2,(y1+y2)/2-11); }
+    if(g.closed){ const gx=g.pts.reduce((a,p)=>a+p[0],0)/g.pts.length, gy=g.pts.reduce((a,p)=>a+p[1],0)/g.pts.length, [x,y]=T([gx,gy]), rh=roomHeight(g);
+      c.fillStyle="#4d7fc4"; c.font="bold 14px system-ui"; c.fillText("S"+(g.ri+1)+"  "+f2(areaM2(g.pts))+" m2", x, y-(rh?8:0)); if(rh) c.fillText("H "+f2(rh), x, y+10); } }
+  S.open.forEach((o,i)=>{ const [a,b]=og[i], [x1,y1]=T(a), [x2,y2]=T(b), col=o.kind==="window"?"#2a7fff":"#8a5a2b";
+    c.strokeStyle=col; c.lineWidth=8; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+    let t=olabel(i,o)+" "+f2(dist2(a,b)/1000)+" x "+f2(o.top-o.sill); if(o.kind==="window") t+="  (p. "+f2(o.sill)+")";
+    c.fillStyle=col; c.font="bold 11px system-ui"; c.fillText(t,(x1+x2)/2,(y1+y2)/2+18); });
+  for(const g of geo) g.pts.forEach((p,i)=>{ const [x,y]=T(p); c.fillStyle=(g.ri===0&&i===0)?"#d00":"#07a"; c.beginPath(); c.arc(x,y,5,0,7); c.fill();
+    c.fillStyle=FG; c.font="bold 13px system-ui"; c.fillText(plabel(g.ri,i,multi), x+14, y-14); });
+  for(const k of S.ceil){ const [x,y]=T(tf(k.p)); c.fillStyle="#a0a"; c.fillRect(x-4,y-4,8,8); c.textAlign="left"; c.font="bold 12px system-ui"; c.fillText("h "+f2(k.h), x+8, y+14); c.textAlign="center"; }
+  rxy.forEach((r,i)=>{ const [x,y]=T(r); c.fillStyle="#f90"; c.strokeStyle="#a50"; c.lineWidth=1.5; c.beginPath(); c.moveTo(x,y-8); c.lineTo(x+8,y); c.lineTo(x,y+8); c.lineTo(x-8,y); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle="#a50"; c.textAlign="left"; c.font="bold 12px system-ui"; c.fillText("R"+(i+1), x+12, y+14); c.textAlign="center"; });
+  sxy.forEach((s,i)=>{ const [x,y]=T(s), col=i===sxy.length-1?"#0a0":"#777"; c.fillStyle=col; c.strokeStyle="#030"; c.beginPath(); c.moveTo(x,y-11); c.lineTo(x+10,y+8); c.lineTo(x-10,y+8); c.closePath(); c.fill(); c.stroke();
+    c.textAlign="left"; c.font="bold 13px system-ui"; c.fillText("S"+(i+1), x+14, y-8); c.textAlign="center"; });
+  if(partial) for(const q of partial.steps.slice(0,2)){ const [x,y]=T(tf(q)); c.strokeStyle="#f60"; c.lineWidth=3; c.beginPath(); c.arc(x,y,7,0,7); c.stroke(); }
+}
+
+/* ---------- DXF, salva, apri ---------- */
+function buildDxf(){
+  const geo=geometry(); if(!geo.length) return null; const allsegs=geo.flatMap(g=>g.segs), multi=geo.length>1, it=[];
+  for(const g of geo){
+    g.pts.forEach((p,i)=>{ it.push(["P",p[0],p[1]]); it.push(["T","DISTO_NUMERI",p[0]+40,p[1]+40,80,plabel(g.ri,i,multi)]); });
+    for(const [a,b] of g.segs){ it.push(["L","DISTO_LINEE",a[0],a[1],b[0],b[1]]); it.push(["T","DISTO_QUOTE",(a[0]+b[0])/2,(a[1]+b[1])/2,80,f3(dist2(a,b)/1000)]); }
+    if(g.closed){ const gx=g.pts.reduce((a,p)=>a+p[0],0)/g.pts.length, gy=g.pts.reduce((a,p)=>a+p[1],0)/g.pts.length, rh=roomHeight(g);
+      it.push(["T","DISTO_STANZE",gx,gy,120,"S"+(g.ri+1)+" A="+f2(areaM2(g.pts))+" m2"+(rh?" H="+f2(rh):"")]); } }
+  for(const k of S.ceil){ const q=tf(k.p); it.push(["T","DISTO_ALTEZZE",q[0]+60,q[1]-120,80,"h="+f2(k.h)]); }
+  S.open.forEach((o,i)=>{ const [a,b]=openingGeom(o,allsegs), lay=o.kind==="window"?"DISTO_FINESTRE":"DISTO_PORTE";
+    it.push(["L",lay,a[0],a[1],b[0],b[1]]);
+    it.push(["T",lay,(a[0]+b[0])/2,(a[1]+b[1])/2-150,70,olabel(i,o)+" L="+f2(dist2(a,b)/1000)+" H="+f2(o.top-o.sill)+(o.kind==="window"?" P="+f2(o.sill):"")]); });
+  [["DISTO_STAZIONI","ST",S.stations.map(stationXY)],["DISTO_RIFERIMENTI","R",S.refs.map(tf)]].forEach(([lay,pre,pts])=>pts.forEach(([x,y],i)=>{
+    it.push(["L",lay,x-100,y,x+100,y]); it.push(["L",lay,x,y-100,x,y+100]); it.push(["T",lay,x+120,y+60,100,pre+(i+1)]); }));
+  const o=["0","SECTION","2","HEADER","9","$ACADVER","1","AC1009","0","ENDSEC","0","SECTION","2","ENTITIES"], n=v=>v.toFixed(3);
+  for(const e of it){
+    if(e[0]==="P") o.push("0","POINT","8","DISTO_PUNTI","10",n(e[1]),"20",n(e[2]),"30","0");
+    else if(e[0]==="T") o.push("0","TEXT","8",e[1],"10",n(e[2]),"20",n(e[3]),"30","0","40",e[4].toFixed(1),"1",e[5]);
+    else o.push("0","LINE","8",e[1],"10",n(e[2]),"20",n(e[3]),"30","0","11",n(e[4]),"21",n(e[5]),"31","0"); }
+  o.push("0","ENDSEC","0","EOF"); return o.join("\r\n")+"\r\n"; }
+async function deliver(name, text, mime){
+  const mobile=/iPhone|iPad|Android/i.test(navigator.userAgent);
+  try{ const f=new File([text], name, {type:mime});
+    if(mobile && navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f], title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:mime})); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); }
+const stamp = () => { const d=new Date(), p=x=>String(x).padStart(2,"0"); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes()); };
+async function exportDxf(){ const t=buildDxf(); if(!t){ warn("Nessun punto da esportare."); return; } await deliver("rilievo_"+stamp()+".dxf", t, "application/dxf"); ok("DXF esportato."); }
+async function saveFile(){ await deliver("rilievo_"+stamp()+".json", JSON.stringify(S), "application/json"); ok("Rilievo salvato."); }
+function loadObj(d){ cancelStation(); S={rooms:d.rooms&&d.rooms.length?d.rooms:[newRoom()], ceil:d.ceil||[], open:d.open||[], refs:d.refs||[], stations:d.stations&&d.stations.length?d.stations:[newStation()], hvar:d.hvar||""};
+  $("hvar").value=S.hvar; partial=null; undo=[]; setMode("plan"); setHint(); refresh(); }
+function save_local(){ try{ localStorage.setItem("distoRilievo", JSON.stringify(S)); }catch(e){} }
+
+/* ---------- Bluetooth ---------- */
+let dev=null, chars={}, rspResolve=null, pending={}, timer=null;
+function parseAng(dv){ if(dv.byteLength<12) return; const cnt=dv.getUint8(10), p=pending[cnt]||(pending[cnt]={t:Date.now()}); p.h=dv.getFloat32(0,true); p.z=dv.getFloat32(4,true); complete(cnt); }
+function parseDst(dv){ if(dv.byteLength<20) return; const cnt=dv.getUint8(18), p=pending[cnt]||(pending[cnt]={t:Date.now()}); p.d=dv.getFloat32(0,true); p.inc=dv.getFloat32(4,true); complete(cnt); }
+function complete(cnt){ const m=pending[cnt]; if(m && ["h","z","d","inc"].every(k=>k in m)){ delete pending[cnt]; onMeasure(m); } }
+function send(text){ return new Promise(res=>{
+  const to=setTimeout(()=>{ rspResolve=null; res(""); },5000);
+  rspResolve=v=>{ clearTimeout(to); res(v); };
+  chars["120"].writeValueWithResponse(new TextEncoder().encode(text+"\r\n")).catch(()=>{ clearTimeout(to); rspResolve=null; res(""); }); }); }
+async function connect(all){
+  if(!navigator.bluetooth){ warn("Questo browser non supporta il Bluetooth web. Sul PC usa Chrome o Edge, sull'iPhone l'app Bluefy."); return; }
+  if(dev && dev.gatt.connected){ dev.gatt.disconnect(); return; }
+  try{
+    info("Scelgo il dispositivo...");
+    dev = await navigator.bluetooth.requestDevice(all? {acceptAllDevices:true, optionalServices:[SERVICE]} : {filters:[{namePrefix:"DISTO"}], optionalServices:[SERVICE]});
+    dev.addEventListener("gattserverdisconnected", ()=>{ $("bConn").textContent="Collega Disto"; $("bConn").classList.add("primary"); clearInterval(timer); info("Scollegato."); });
+    info("Mi collego al Disto..."); const server=await dev.gatt.connect(), svc=await server.getPrimaryService(SERVICE); chars={};
+    for(const n of ENABLE){ const ch=await svc.getCharacteristic(U(n)); chars[n]=ch;
+      ch.addEventListener("characteristicvaluechanged", e=>{ const dv=e.target.value;
+        if(n==="10f") parseAng(dv); else if(n==="10d") parseDst(dv);
+        else if(n==="121"){ const t=new TextDecoder().decode(dv).trim(); if(rspResolve){ const r=rspResolve; rspResolve=null; r(t); } } });
+      await ch.startNotifications(); }
+    chars["120"]=await svc.getCharacteristic(U("120"));
+    await send("getSoftwareVersion app"); await send("getDiscoStatus"); await send("raiseEvent 100"); const lvl=await send("getLevelStatus");
+    $("bConn").textContent="Scollega"; $("bConn").classList.remove("primary");
+    ok("Collegato. Premi il tasto di misura sul Disto."+(lvl.endsWith("1")?"":"  (livello base non confermato)"));
+    timer=setInterval(()=>{ const now=Date.now(); for(const k of Object.keys(pending)){ const m=pending[k];
+      if(now-m.t>3000){ if("d" in m && !("h" in m)) warn("Arrivata solo la distanza ("+f3(m.d)+" m), senza angoli: misura NON registrata. Controlla la bolla e riprova."); delete pending[k]; } } },500);
+  }catch(e){ warn("Errore: "+(e&&e.message?e.message:e)+(String(e).includes("User cancelled")?"":"  — se non lo trova: spegni e riaccendi il Disto e riprova.")); }
+}
+
+/* ---------- demo ---------- */
+function demo(){ const meas=(x,y,z)=>{ const d=Math.sqrt(x*x+y*y+z*z)/1000; return {d, z:Math.acos(z/1000/d), h:-Math.atan2(y,x), inc:0}; };
+  clearAll(); S.hvar="1.5"; $("hvar").value="1.5"; onMode("plan");
+  [[-2000,-1500],[2000,-1500],[2000,1500],[-2000,1500]].forEach(([x,y])=>onMeasure(meas(x,y,1200))); toggleClose();
+  onMode("ceil"); onMeasure(meas(-2000,-1500,1200)); onMode("window");
+  [[-500,-1500,-600],[500,-1500,-600],[0,-1500,-600],[0,-1500,-100]].forEach(p=>onMeasure(meas(...p)));
+  onMode("door"); [[2000,-500,-1500],[2000,300,-1500],[2000,0,600]].forEach(p=>onMeasure(meas(...p))); onMode("plan");
+  info("Demo caricata: stanza 4 x 3 m con altezza, una finestra e una porta."); }
+
+/* ---------- avvio ---------- */
+MODES.forEach(([k,t])=>{ const b=document.createElement("button"); b.className="mode"; b.dataset.m=k; b.textContent=t; b.onclick=()=>onMode(k); $("modes").appendChild(b); });
+$("bConn").onclick=()=>connect(false); $("bAll").onclick=()=>connect(true);
+$("bUndo").onclick=undoLast; $("bClose").onclick=toggleClose; $("bRoom").onclick=newRoomBtn; $("bDxf").onclick=exportDxf;
+$("bSave").onclick=saveFile; $("bOpen").onclick=()=>$("fileIn").click(); $("bClear").onclick=clearAll; $("bStation").onclick=stationBtn; $("bSkip").onclick=skipRef; $("bDemo").onclick=demo;
+$("fileIn").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ loadObj(JSON.parse(await f.text())); ok("Rilievo aperto: "+f.name); }catch(x){ warn("File non valido."); } e.target.value=""; };
+$("hvar").oninput=e=>{ S.hvar=e.target.value; refresh(); };
+window.addEventListener("resize", redraw);
+try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw); if(d.rooms && d.rooms.some(r=>r.pts.length)) { loadObj(d); ok("Ripristinato l'ultimo rilievo."); } } }catch(e){}
+setMode("plan"); setHint(); refresh();
+window.disto={onMeasure, onMode, stationBtn, toggleClose, undoLast, newRoomBtn, buildDxf, get S(){return S;}, demo, clearAll};
+</script>
+</body>
+</html>
