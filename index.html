@@ -17,11 +17,39 @@
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif; }
   body { padding:calc(8px + env(safe-area-inset-top)) 12px calc(92px + env(safe-area-inset-bottom)); max-width:1400px; margin:0 auto; -webkit-user-select:none; user-select:none; }
-  button { font:inherit; font-weight:650; color:var(--fg); background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; min-height:48px; touch-action:manipulation; cursor:pointer; }
-  button:active { transform:scale(.97); background:#26262e; }
-  button:disabled { opacity:.4; }
-  button.red { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button { font:inherit; font-weight:650; color:var(--fg); background:linear-gradient(180deg,#222229,#1b1b21); border:1px solid var(--line); border-radius:12px; padding:10px 12px; min-height:48px; touch-action:manipulation; cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06); transition:transform .08s, box-shadow .08s; }
+  button:active { transform:translateY(1px) scale(.97); background:#26262e; box-shadow:0 1px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04); }
+  button:disabled { opacity:.4; box-shadow:none; }
+  button.red { background:linear-gradient(180deg,#ef4447,#d42f32); border-color:#e5383b; color:#fff; box-shadow:0 4px 14px rgba(229,56,59,.4), inset 0 1px 0 rgba(255,255,255,.18); }
   button.red:active { background:#c42a2d; }
+  .card, #hintCard, details { box-shadow:0 6px 20px rgba(0,0,0,.45); }
+
+  /* caricamento */
+  #splash { position:fixed; inset:0; z-index:50; background:radial-gradient(circle at 50% 40%,#1a0d0e,#0b0b0d 65%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; transition:opacity .35s; }
+  #splash.out { opacity:0; pointer-events:none; }
+  .logo { font-size:34px; font-weight:850; letter-spacing:.5px; text-shadow:0 4px 18px rgba(0,0,0,.6); }
+  .logo b { color:var(--accent); }
+  .spinner { width:54px; height:54px; border-radius:50%; border:5px solid rgba(229,56,59,.18); border-top-color:var(--accent); animation:spin .8s linear infinite; filter:drop-shadow(0 0 10px rgba(229,56,59,.45)); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #splash .sub { color:var(--muted); font-size:14px; }
+
+  /* menu iniziale */
+  #start { position:fixed; inset:0; z-index:40; background:radial-gradient(circle at 50% 0%,#24100f,#0b0b0d 60%); overflow:auto;
+    padding:calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; align-items:center; }
+  #start[hidden] { display:none; }
+  #start .logo { margin-bottom:4px; }
+  #start .tag { color:var(--muted); margin-bottom:30px; font-size:15px; }
+  #start .list { width:100%; max-width:440px; display:flex; flex-direction:column; gap:12px; }
+  #start .list button { display:flex; align-items:center; gap:14px; text-align:left; min-height:72px; padding:12px 16px; border-radius:16px; font-size:18px; }
+  #start .list button .ic { width:42px; height:42px; flex:none; border-radius:12px; display:grid; place-items:center; font-size:21px; background:rgba(229,56,59,.15); color:var(--accent2); }
+  #start .list button.red .ic { background:rgba(255,255,255,.18); color:#fff; }
+  #start .list button span small { display:block; font-size:13px; font-weight:500; color:var(--muted); margin-top:2px; }
+  #start .list button.red span small { color:rgba(255,255,255,.85); }
+  #start .foot { display:flex; gap:10px; margin-top:22px; width:100%; max-width:440px; }
+  #start .foot button { flex:1; min-height:46px; font-size:15px; }
+  #start .ver { color:var(--muted); font-size:12px; margin-top:auto; padding-top:24px; }
+  #bConn.busy::before { width:12px; height:12px; background:none; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:spin .7s linear infinite; }
 
   /* intestazione */
   header { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0 10px; background:var(--bg); }
@@ -56,7 +84,8 @@
   #wrap { display:grid; grid-template-columns:1fr; gap:10px; }
   @media (min-width:900px) { #wrap { grid-template-columns:1fr 360px; } }
   .cvbox { position:relative; }
-  canvas { width:100%; height:52vh; min-height:300px; border:1px solid var(--line); border-radius:14px; background:#101014; display:block; touch-action:none; }
+  canvas { width:100%; height:52vh; min-height:300px; border:1px solid #34343d; border-radius:14px; background:#1a1a20; display:block; touch-action:none;
+    box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 0 40px rgba(0,0,0,.35); }
   #bFit { position:absolute; right:10px; top:10px; min-height:38px; padding:6px 12px; border-radius:999px; background:rgba(29,29,36,.92); font-size:14px; }
   .cvtip { position:absolute; left:12px; bottom:8px; font-size:11.5px; color:var(--muted); pointer-events:none; }
 
@@ -95,6 +124,23 @@
 </style>
 </head>
 <body>
+<div id="splash"><div class="logo"><b>DISTO</b> Rilievo</div><div class="spinner"></div><div class="sub">Caricamento…</div></div>
+
+<div id="start" hidden>
+  <div class="logo"><b>DISTO</b> Rilievo</div>
+  <div class="tag">Rilievo con Leica DISTO X6 P2P</div>
+  <div class="list">
+    <button id="sNew" class="red"><div class="ic">＋</div><span>Nuovo rilievo<small>Parti da zero</small></span></button>
+    <button id="sCont"><div class="ic">▶</div><span>Continua rilievo<small id="sContInfo">Nessun rilievo in corso</small></span></button>
+    <button id="sOpen"><div class="ic">📂</div><span>Apri rilievo salvato<small>Da un file .json</small></span></button>
+    <button id="sDemo"><div class="ic">◇</div><span>Prova senza Disto<small>Stanza di esempio</small></span></button>
+  </div>
+  <div class="foot">
+    <button id="sSound">🔊 Suono: sì</button>
+  </div>
+  <div class="ver">versione 3 · 27/10/2026</div>
+</div>
+
 <header>
   <div class="brand"><b>DISTO</b> Rilievo <span id="stlabelTop"></span></div>
   <button id="bConn">Collega Disto</button>
@@ -147,11 +193,11 @@
       <button id="bOpen">📂 Apri rilievo</button>
       <button id="bSound">🔊 Suono: sì</button>
       <button id="bAll" class="wide">Collega: mostra tutti i dispositivi</button>
-      <button id="bDemo">Prova (demo)</button>
+      <button id="bHome">🏠 Menu iniziale</button>
       <button id="bClear">Azzera tutto</button>
       <button id="bSheetClose" class="wide red">Chiudi menu</button>
     </div>
-    <div class="ver">DISTO Rilievo · versione 2 · 27/10/2026</div>
+    <div class="ver">DISTO Rilievo · versione 3 · 27/10/2026</div>
   </div>
 </div>
 <input id="fileIn" type="file" accept=".json,application/json" hidden>
@@ -224,14 +270,17 @@ const f2 = x => x.toFixed(2), f3 = x => x.toFixed(3);
 /* ---------- feedback: lampeggio, suono, vibrazione ---------- */
 let actx=null, soundOn=true;
 try{ soundOn = localStorage.getItem("distoSound")!=="0"; }catch(e){}
-document.addEventListener("pointerdown", ()=>{ try{
-  if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); else if(actx.state==="suspended") actx.resume(); }catch(e){} }, true);
-function beep(f, ms, delay){ if(!actx||!soundOn) return; try{
+document.addEventListener("pointerdown", e=>{ try{
+  if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); else if(actx.state==="suspended") actx.resume(); }catch(x){}
+  const b=e.target.closest && e.target.closest("button"); if(b && !b.disabled) tick(); }, true);
+function tick(){ beep(1700, 28, 0, 0.07, "triangle"); }
+function beep(f, ms, delay, vol, type){ if(!actx||!soundOn) return; try{
   const t=actx.currentTime+(delay||0), o=actx.createOscillator(), g=actx.createGain();
-  o.type="sine"; o.frequency.value=f; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.3,t+0.01);
+  o.type=type||"sine"; o.frequency.value=f; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.3,t+0.005);
   g.gain.exponentialRampToValueAtTime(0.0001,t+ms/1000); o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+ms/1000+0.03); }catch(e){} }
 function pulse(kind){ const hc=$("hintCard"); hc.classList.remove("flash-ok","flash-bad"); void hc.offsetWidth; hc.classList.add(kind==="ok"?"flash-ok":"flash-bad"); }
-function soundLabel(){ $("bSound").textContent = soundOn ? "🔊 Suono: sì" : "🔇 Suono: no"; }
+function soundLabel(){ const t = soundOn ? "🔊 Suono: sì" : "🔇 Suono: no"; $("bSound").textContent=t; $("sSound").textContent=t; }
+function toggleSound(){ soundOn=!soundOn; try{ localStorage.setItem("distoSound", soundOn?"1":"0"); }catch(e){} soundLabel(); if(soundOn) tick(); }
 
 /* ---------- messaggi ---------- */
 function ok(t){ const e=$("status"); e.textContent=t; e.className="ok"; }
@@ -372,11 +421,31 @@ const C = { line:"#f3f3f5", cur:"#ff5c5f", fill:"rgba(229,56,59,.12)", dim:"#ffb
   win:"#4fb3ff", door:"#d39b5f", ceil:"#c084fc", ref:"#ffb020", st:"#4ade80", stOld:"#7a7a85", halo:"#101014", muted:"#9a9aa5" };
 function label(c, t, x, y, col, font, align){ c.font=font; c.textAlign=align||"center"; c.lineJoin="round";
   c.strokeStyle=C.halo; c.lineWidth=4; c.strokeText(t,x,y); c.fillStyle=col; c.fillText(t,x,y); }
+/* griglia a quadrati: in metri reali quando c'è un disegno, con scala in alto a sinistra */
+function drawGrid(c, W, Hh, g){
+  let step, ox, oy, major=5, lbl=null;
+  if(!g){ step=28; ox=W/2; oy=Hh/2; }
+  else { const steps=[50,100,200,250,500,1000,2000,2500,5000,10000,20000,50000];
+    let mm=steps.find(s=>s*g.sc>=26)||50000; step=mm*g.sc;
+    // posizione sullo schermo dell'origine del disegno (0,0)
+    ox=W/2+view.x+(0-g.cx)*g.sc; oy=Hh/2+view.y+(g.cy-0)*g.sc;
+    lbl=(mm>=1000? (mm/1000)+" m" : (mm/1000).toFixed(mm%100?3:2).replace(/0+$/,"")+" m"); }
+  const x0=ox-Math.ceil(ox/step)*step, y0=oy-Math.ceil(oy/step)*step;
+  for(const pass of [0,1]){
+    c.beginPath();
+    for(let x=x0, i=Math.round((x0-ox)/step); x<=W+1; x+=step, i++){ if((i%major===0)===!!pass){ c.moveTo(Math.round(x)+.5,0); c.lineTo(Math.round(x)+.5,Hh); } }
+    for(let y=y0, i=Math.round((y0-oy)/step); y<=Hh+1; y+=step, i++){ if((i%major===0)===!!pass){ c.moveTo(0,Math.round(y)+.5); c.lineTo(W,Math.round(y)+.5); } }
+    c.strokeStyle = pass ? "rgba(255,255,255,.10)" : "rgba(255,255,255,.045)"; c.lineWidth=1; c.stroke(); }
+  if(lbl){ const s=Math.round(step); c.fillStyle="rgba(20,20,26,.85)"; c.fillRect(8,8,s+70,24);
+    c.strokeStyle="rgba(255,255,255,.55)"; c.strokeRect(14.5,14.5,s,12); c.fillStyle="#cfcfd6"; c.font="12px system-ui"; c.textAlign="left"; c.textBaseline="middle";
+    c.fillText("= "+lbl, 20+s, 20); }
+}
 function redraw(){
   const cv=$("cv"), dpr=window.devicePixelRatio||1, W=cv.clientWidth, Hh=cv.clientHeight;
   if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(Hh*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(Hh*dpr); }
   const c=cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,Hh);
   $("bFit").hidden = isDefaultView();
+  drawGrid(c, W, Hh, null);
   const geo=geometry(), allsegs=geo.flatMap(g=>g.segs), multi=geo.length>1;
   const og=S.open.map(o=>openingGeom(o,allsegs)), sxy=S.stations.map(stationXY), rxy=S.refs.map(tf);
   let all=[...geo.flatMap(g=>g.pts), ...og.flat(), ...S.ceil.map(k=>tf(k.p)), ...sxy, ...rxy];
@@ -388,6 +457,7 @@ function redraw(){
   const bw=Math.max(Math.max(...xs)-Math.min(...xs),500), bh=Math.max(Math.max(...ys)-Math.min(...ys),500);
   const sc=Math.min((W-90)/bw,(Hh-90)/bh)*view.z, cx=(Math.max(...xs)+Math.min(...xs))/2, cy=(Math.max(...ys)+Math.min(...ys))/2;
   const T=p=>[W/2+view.x+(p[0]-cx)*sc, Hh/2+view.y-(p[1]-cy)*sc]; lastT=T;
+  c.clearRect(0,0,W,Hh); drawGrid(c, W, Hh, {sc, cx, cy});
   const curRi = S.rooms[S.rooms.length-1].closed ? -1 : S.rooms.length-1;
   for(const g of geo) if(g.closed){ c.beginPath(); g.pts.forEach((p,i)=>{ const [x,y]=T(p); i?c.lineTo(x,y):c.moveTo(x,y); }); c.closePath(); c.fillStyle=C.fill; c.fill(); }
   for(const g of geo){ const isCur=g.ri===curRi;
@@ -458,10 +528,11 @@ function send(text){ return new Promise(res=>{
   const to=setTimeout(()=>{ rspResolve=null; res(""); },5000);
   rspResolve=v=>{ clearTimeout(to); res(v); };
   chars["120"].writeValueWithResponse(new TextEncoder().encode(text+"\r\n")).catch(()=>{ clearTimeout(to); rspResolve=null; res(""); }); }); }
-function connUI(on){ const b=$("bConn"); b.classList.toggle("on", on); b.textContent = on ? "Collegato" : "Collega Disto"; }
+function connUI(on, busy){ const b=$("bConn"); b.classList.toggle("on", !!on); b.classList.toggle("busy", !!busy);
+  b.textContent = busy ? "Collegamento…" : on ? "Collegato" : "Collega Disto"; }
 function onDisconnected(){ connUI(false); clearInterval(timer); warn("Disto SCOLLEGATO. Premi «Collega Disto» per ricollegarlo: il rilievo resta salvato."); }
 async function setup(){
-  info("Mi collego al Disto..."); const server=await dev.gatt.connect(), svc=await server.getPrimaryService(SERVICE); chars={};
+  info("Mi collego al Disto..."); connUI(false, true); const server=await dev.gatt.connect(), svc=await server.getPrimaryService(SERVICE); chars={};
   for(const n of ENABLE){ const ch=await svc.getCharacteristic(U(n)); chars[n]=ch;
     ch.addEventListener("characteristicvaluechanged", e=>{ const dv=e.target.value;
       if(n==="10f") parseAng(dv); else if(n==="10d") parseDst(dv);
@@ -496,6 +567,19 @@ function demo(){ const meas=(x,y,z)=>{ const d=Math.sqrt(x*x+y*y+z*z)/1000; retu
   onMode("door"); [[2000,-500,-1500],[2000,300,-1500],[2000,0,600]].forEach(p=>onMeasure(meas(...p))); onMode("plan");
   info("Demo caricata: stanza 4 × 3 m con altezza, una finestra e una porta."); }
 
+/* ---------- menu iniziale ---------- */
+const hasData = () => S.open.length||S.ceil.length||S.refs.length||S.rooms.some(r=>r.pts.length);
+function startInfo(){
+  const pts=S.rooms.reduce((a,r)=>a+r.pts.length,0), rooms=S.rooms.filter(r=>r.pts.length).length, el=$("sCont");
+  el.disabled=!hasData();
+  $("sContInfo").textContent = hasData() ? rooms+(rooms===1?" stanza":" stanze")+", "+pts+" punti"+(S.open.length?", "+S.open.length+" aperture":"")+(S.stations.length>1?", "+S.stations.length+" stazioni":"") : "Nessun rilievo in corso";
+}
+function showStart(){ closeSheet(); startInfo(); $("start").hidden=false; }
+function enterApp(){ $("start").hidden=true; setHint(); refresh(); }
+function startNew(){
+  if(hasData() && !confirm("Il rilievo in corso verrà cancellato.\nSe ti serve, prima salvalo (Menu → Salva rilievo).\n\nIniziare un nuovo rilievo?")) return;
+  clearAll(false); enterApp(); info(dev&&dev.gatt.connected ? "Nuovo rilievo. Punta il primo spigolo." : "Nuovo rilievo. Premi «Collega Disto» in alto."); }
+
 /* ---------- avvio ---------- */
 MODES.forEach(([k,t,sub])=>{ const b=document.createElement("button"); b.dataset.m=k; b.innerHTML=t+"<small>"+sub+"</small>"; b.onclick=()=>onMode(k); $("modes").appendChild(b); });
 const sheet=$("sheet"), openSheet=()=>{ sheet.hidden=false; }, closeSheet=()=>{ sheet.hidden=true; };
@@ -504,17 +588,22 @@ const fromSheet = fn => () => { closeSheet(); fn(); };
 $("bConn").onclick=()=>connect(false); $("bAll").onclick=fromSheet(()=>connect(true));
 $("bUndo").onclick=undoLast; $("bClose").onclick=toggleClose; $("bRoom").onclick=newRoomBtn;
 $("bDxf").onclick=fromSheet(exportDxf); $("bSave").onclick=fromSheet(saveFile); $("bOpen").onclick=fromSheet(()=>$("fileIn").click());
-$("bClear").onclick=fromSheet(clearAll); $("bDemo").onclick=fromSheet(demo);
-$("bSound").onclick=()=>{ soundOn=!soundOn; try{ localStorage.setItem("distoSound", soundOn?"1":"0"); }catch(e){} soundLabel(); if(soundOn) beep(1320,90); };
+$("bClear").onclick=fromSheet(clearAll); $("bHome").onclick=showStart;
+$("bSound").onclick=toggleSound; $("sSound").onclick=toggleSound;
+$("sNew").onclick=startNew; $("sCont").onclick=()=>{ enterApp(); ok("Rilievo ripreso da dove eri rimasto."); };
+$("sOpen").onclick=()=>$("fileIn").click(); $("sDemo").onclick=()=>{ enterApp(); demo(); };
 $("bStation").onclick=stationBtn; $("bSkip").onclick=skipRef; $("bFit").onclick=()=>{ resetView(); redraw(); };
-$("fileIn").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ loadObj(JSON.parse(await f.text())); ok("Rilievo aperto: "+f.name); }catch(x){ warn("File non valido."); } e.target.value=""; };
+$("fileIn").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ loadObj(JSON.parse(await f.text())); enterApp(); ok("Rilievo aperto: "+f.name); }catch(x){ warn("File non valido."); } e.target.value=""; };
 $("hvar").oninput=e=>{ S.hvar=e.target.value; refresh(); };
 window.addEventListener("resize", redraw);
 if(window.innerWidth>=900) $("dati").open=true;
 soundLabel();
-try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw); if(d.rooms && d.rooms.some(r=>r.pts.length)) { loadObj(d); ok("Ripristinato l'ultimo rilievo."); } } }catch(e){}
+try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw); if(d.rooms && d.rooms.some(r=>r.pts.length)) loadObj(d); } }catch(e){}
 setMode("plan"); setHint(); refresh();
-window.disto={onMeasure, onMode, stationBtn, toggleClose, undoLast, newRoomBtn, buildDxf, get S(){return S;}, demo, clearAll, get view(){return view;}};
+// schermata di caricamento, poi menu iniziale
+startInfo(); $("start").hidden=false;
+setTimeout(()=>{ $("splash").classList.add("out"); setTimeout(()=>$("splash").remove(), 400); }, 900);
+window.disto={onMeasure, onMode, stationBtn, toggleClose, undoLast, newRoomBtn, buildDxf, get S(){return S;}, demo, clearAll, get view(){return view;}, showStart, enterApp};
 </script>
 </body>
 </html>
