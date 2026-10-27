@@ -78,7 +78,12 @@
   #modes button small { font-size:10.5px; font-weight:500; color:var(--muted); }
   #modes button.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 18px rgba(229,56,59,.35); }
   #modes button.on small { color:rgba(255,255,255,.85); }
-  @media (min-width:760px) { #modes { grid-template-columns:repeat(8,1fr); } }
+  #modes.m2d { grid-template-columns:repeat(3,1fr); } #modes.m3d { grid-template-columns:repeat(3,1fr); }
+  #modes button.off { display:none; }
+  @media (min-width:760px) { #modes.m2d { grid-template-columns:repeat(6,1fr); } }
+  .badge { font-size:13px; font-weight:800; color:#fff; background:var(--accent); border-radius:6px; padding:2px 7px; margin-left:4px; vertical-align:3px; letter-spacing:.3px; }
+  #start .back { margin-top:4px; min-height:48px; font-size:15px; }
+  #start .list[hidden], #vtog[hidden] { display:none; }
 
   /* pianta e dati */
   #wrap { display:grid; grid-template-columns:1fr; gap:10px; }
@@ -149,8 +154,13 @@
 <div id="start" hidden>
   <div class="logo"><b>DISTO</b> Rilievo</div>
   <div class="tag">Rilievo con Leica DISTO X6 P2P</div>
-  <div class="list">
-    <button id="sNew" class="red"><div class="ic">＋</div><span>Nuovo rilievo<small>Parti da zero</small></span></button>
+  <div class="list" id="sType" hidden>
+    <button id="sNew2d" class="red"><div class="ic">📐</div><span>Planimetria 2D<small>Stanze, misure, altezze, finestre e porte</small></span></button>
+    <button id="sNew3d" class="red"><div class="ic">🧊</div><span>Rilievo 3D<small>Assi XYZ, punti con X Y Z reali, vista 3D</small></span></button>
+    <button id="sBack" class="back">‹ Indietro</button>
+  </div>
+  <div class="list" id="sMain">
+    <button id="sNew" class="red"><div class="ic">＋</div><span>Nuovo rilievo<small>Planimetria 2D o rilievo 3D</small></span></button>
     <button id="sCont"><div class="ic">▶</div><span>Continua rilievo<small id="sContInfo">Nessun rilievo in corso</small></span></button>
     <button id="sOpen"><div class="ic">📂</div><span>Apri rilievo salvato<small>Da un file .json</small></span></button>
     <button id="sDemo"><div class="ic">◇</div><span>Prova senza Disto<small>Stanza di esempio</small></span></button>
@@ -158,11 +168,11 @@
   <div class="foot">
     <button id="sSound">🔊 Suono: sì</button>
   </div>
-  <div class="ver">versione 4 · 27/10/2026</div>
+  <div class="ver">versione 5 · 27/10/2026</div>
 </div>
 
 <header>
-  <div class="brand"><b>DISTO</b> Rilievo <span id="stlabelTop"></span></div>
+  <div class="brand"><b>DISTO</b><span class="badge" id="typeBadge">2D</span> <span id="stlabelTop"></span></div>
   <button id="bConn">Collega Disto</button>
 </header>
 
@@ -241,7 +251,7 @@
       <button id="bClear">Azzera tutto</button>
       <button id="bSheetClose" class="wide red">Chiudi menu</button>
     </div>
-    <div class="ver">DISTO Rilievo · versione 4 · 27/10/2026</div>
+    <div class="ver">DISTO Rilievo · versione 5 · 27/10/2026</div>
   </div>
 </div>
 <input id="fileIn" type="file" accept=".json,application/json" hidden>
@@ -261,7 +271,8 @@ const $ = id => document.getElementById(id);
 /* ---------- stato ---------- */
 const newRoom = () => ({pts:[], closed:false});
 const newStation = () => ({theta:0, t:[0,0], tz:0, res:null});
-const emptyS = hv => ({rooms:[newRoom()], ceil:[], open:[], refs:[], stations:[newStation()], hvar:hv||"", axes:null, p3:[], line3:0, c3:[]});
+const MODES2D = ["plan","floor","ceil","window","door","refs"], MODES3D = ["axes","p3d","refs"];
+const emptyS = hv => ({type:"2d", rooms:[newRoom()], ceil:[], open:[], refs:[], stations:[newStation()], hvar:hv||"", axes:null, p3:[], line3:0, c3:[]});
 let S = emptyS("");
 let stat = null, partial = null, undo = [], mode = "plan";
 
@@ -371,7 +382,14 @@ function setHint(){ let t; const n=S.stations.length;
   else if(mode==="p3d") t = S.c3.includes(S.line3) ? "PUNTI 3D · LINEA "+(S.line3+2)+" — punta il primo punto (X, Y e Z reali)" : "PUNTI 3D · LINEA "+(S.line3+1)+" — punta il punto "+(S.p3.filter(x=>x.l===S.line3).length+1)+" (X, Y e Z reali)"+(S.axes?"":". Consiglio: prima definisci gli «Assi XYZ».");
   else if(HINTS[mode]) t=HINTS[mode];
   else t=(mode==="window"?WSTEPS:DSTEPS)[partial?partial.steps.length:0];
-  $("hint").textContent=t; $("stlabel").textContent="Stazione S"+n; $("stlabelTop").textContent="· S"+n; }
+  $("hint").textContent=t; $("stlabel").textContent="Stazione S"+n; $("stlabelTop").textContent="Rilievo · S"+n; }
+/* tipo di rilievo: planimetria 2D o rilievo 3D, ognuno con i suoi strumenti */
+function applyType(){ const is3=S.type==="3d", list=is3?MODES3D:MODES2D;
+  $("modes").className = is3 ? "m3d" : "m2d";
+  document.querySelectorAll("#modes button").forEach(b=>{ b.classList.toggle("off", !list.includes(b.dataset.m)); b.style.order=list.indexOf(b.dataset.m); });
+  $("typeBadge").textContent = is3 ? "3D" : "2D"; $("vtog").hidden = !is3;
+  if(!list.includes(mode)) setMode(is3 ? (S.axes ? "p3d" : "axes") : "plan");
+  if(!is3 && v3d) setView3d(false); }
 
 /* ---------- stazioni ---------- */
 function stationBtn(){
@@ -449,7 +467,7 @@ function undoLast(){
   setHint(); refresh(); }
 function clearAll(ask){
   if(ask!==false && hasData() && !confirm("Cancello tutto il rilievo?")) return;
-  cancelStation(); S=emptyS(S.hvar);
+  cancelStation(); const ty=S.type; S=emptyS(S.hvar); S.type=ty;
   partial=null; undo=[]; resetView(); setMode("plan"); setHint(); refresh(); }
 function toggleClose(){
   if(mode==="p3d"){ const n=S.p3.filter(x=>x.l===S.line3).length; if(n<3){ warn("Servono almeno 3 punti 3D nella linea per chiuderla."); return; }
@@ -684,7 +702,8 @@ const stamp = () => { const d=new Date(), p=x=>String(x).padStart(2,"0"); return
 async function exportDxf(){ const t=buildDxf(); if(!t){ warn("Nessun punto da esportare."); return; } await deliver("rilievo_"+stamp()+".dxf", t, "application/dxf"); ok("DXF esportato."); }
 async function saveFile(){ await deliver("rilievo_"+stamp()+".json", JSON.stringify(S), "application/json"); ok("Rilievo salvato."); }
 function loadObj(d){ cancelStation(); S={rooms:d.rooms&&d.rooms.length?d.rooms:[newRoom()], ceil:d.ceil||[], open:d.open||[], refs:d.refs||[], stations:d.stations&&d.stations.length?d.stations:[newStation()], hvar:d.hvar||"",
-    axes:d.axes||null, p3:d.p3||[], line3:d.line3||0, c3:d.c3||[]};
+    axes:d.axes||null, p3:d.p3||[], line3:d.line3||0, c3:d.c3||[], type: d.type || ((d.p3&&d.p3.length)||d.axes ? "3d" : "2d")};
+  applyType();
   $("hvar").value=S.hvar; partial=null; undo=[]; resetView(); setMode("plan"); setHint(); refresh(); }
 function save_local(){ try{ localStorage.setItem("distoRilievo", JSON.stringify(S)); }catch(e){} }
 
@@ -734,16 +753,21 @@ async function connect(all){
 }
 
 /* ---------- demo ---------- */
-function demo(){ const meas=(x,y,z)=>{ const d=Math.sqrt(x*x+y*y+z*z)/1000; return {d, z:Math.acos(z/1000/d), h:-Math.atan2(y,x), inc:0}; };
-  clearAll(); S.hvar="1.5"; $("hvar").value="1.5"; onMode("plan");
+function demo(type){ const meas=(x,y,z)=>{ const d=Math.sqrt(x*x+y*y+z*z)/1000; return {d, z:Math.acos(z/1000/d), h:-Math.atan2(y,x), inc:0}; };
+  clearAll(false); S.type=type==="3d"?"3d":"2d"; S.hvar="1.5"; $("hvar").value="1.5";
+  if(S.type==="3d"){ setView3d(true); onMode("axes"); [[-2000,-1500,-1500],[2000,-1500,-1500],[-2000,1500,-1500]].forEach(p=>onMeasure(meas(...p)));
+    onMode("p3d"); const R=[[-2000,-1500],[2000,-1500],[2000,1500],[-2000,1500]];
+    R.forEach(([x,y])=>onMeasure(meas(x,y,-1500))); toggleClose();
+    R.forEach(([x,y])=>onMeasure(meas(x,y,1200))); toggleClose();
+    [[-2000,600,-300],[-2000,1400,-300],[-2000,1400,700],[-2000,600,700]].forEach(p=>onMeasure(meas(...p))); toggleClose();
+    applyType(); onMode("p3d"); info("Demo 3D: assi sullo spigolo, pavimento, soffitto e una nicchia. Ruota la vista con un dito."); return; }
+  setView3d(false); onMode("plan");
   [[-2000,-1500],[2000,-1500],[2000,1500],[-2000,1500]].forEach(([x,y])=>onMeasure(meas(x,y,1200))); toggleClose();
   onMode("ceil"); onMeasure(meas(-2000,-1500,1200)); onMode("window");
   [[-500,-1500,-600],[500,-1500,-600],[0,-1500,-600],[0,-1500,-100]].forEach(p=>onMeasure(meas(...p)));
   onMode("door"); [[2000,-500,-1500],[2000,300,-1500],[2000,0,600]].forEach(p=>onMeasure(meas(...p)));
-  onMode("axes"); [[-2000,-1500,-1500],[2000,-1500,-1500],[-2000,1500,-1500]].forEach(p=>onMeasure(meas(...p)));
-  onMode("p3d"); [[-2000,600,-300],[-2000,1400,-300],[-2000,1400,700],[-2000,600,700]].forEach(p=>onMeasure(meas(...p))); toggleClose();
-  onMode("plan");
-  info("Demo caricata: stanza 4 × 3 m con altezza, finestra, porta, assi XYZ e una nicchia in 3D (prova la vista «3D»)."); }
+  applyType(); onMode("plan");
+  info("Demo 2D: stanza 4 × 3 m con altezza, una finestra e una porta."); }
 
 /* ---------- foto quotate ---------- */
 const PH={list:[], i:-1, sel:-1, und:[], mode:"d", p2p:null, v:{x:0,y:0,z:1}, drag:null, img:null, finger:null};
@@ -888,13 +912,20 @@ function hasData(){ return !!(S.open.length||S.ceil.length||S.refs.length||S.p3.
 function startInfo(){
   const pts=S.rooms.reduce((a,r)=>a+r.pts.length,0), rooms=S.rooms.filter(r=>r.pts.length).length, el=$("sCont");
   el.disabled=!hasData();
-  $("sContInfo").textContent = hasData() ? rooms+(rooms===1?" stanza":" stanze")+", "+pts+" punti"+(S.open.length?", "+S.open.length+" aperture":"")+(S.p3.length?", "+S.p3.length+" punti 3D":"")+(S.stations.length>1?", "+S.stations.length+" stazioni":"") : "Nessun rilievo in corso";
+  $("sContInfo").textContent = !hasData() ? "Nessun rilievo in corso" : S.type==="3d"
+    ? "Rilievo 3D: "+S.p3.length+" punti"+(S.axes?", assi definiti":", assi da definire")+(S.stations.length>1?", "+S.stations.length+" stazioni":"")
+    : "Planimetria 2D: "+rooms+(rooms===1?" stanza":" stanze")+", "+pts+" punti"+(S.open.length?", "+S.open.length+" aperture":"")+(S.stations.length>1?", "+S.stations.length+" stazioni":"");
 }
-function showStart(){ closeSheet(); startInfo(); $("start").hidden=false; }
-function enterApp(){ $("start").hidden=true; setHint(); refresh(); }
-function startNew(){
+function showStart(){ closeSheet(); startInfo(); startPage(false); $("start").hidden=false; }
+function startPage(types){ $("sType").hidden=!types; if(!types) demoPick=false;
+  document.querySelector("#start .tag").textContent = types ? (demoPick ? "Quale prova vuoi vedere?" : "Che tipo di rilievo vuoi fare?") : "Rilievo con Leica DISTO X6 P2P"; $("sMain").hidden=types; document.querySelector("#start .foot").style.display = types?"none":""; }
+function enterApp(){ $("start").hidden=true; applyType(); setHint(); refresh(); }
+function startNew(type){
   if(hasData() && !confirm("Il rilievo in corso verrà cancellato.\nSe ti serve, prima salvalo (Menu → Salva rilievo).\n\nIniziare un nuovo rilievo?")) return;
-  clearAll(false); enterApp(); info(dev&&dev.gatt.connected ? "Nuovo rilievo. Punta il primo spigolo." : "Nuovo rilievo. Premi «Collega Disto» in alto."); }
+  clearAll(false); S.type=type; applyType(); setMode(type==="3d" ? "axes" : "plan"); setView3d(type==="3d"); enterApp();
+  const con = dev && dev.gatt.connected;
+  if(type==="3d") info((con?"":"Premi «Collega Disto» in alto. ")+"Rilievo 3D: per prima cosa misura gli assi (origine, asse X, lato Y).");
+  else info(con ? "Planimetria 2D. Punta il primo spigolo." : "Planimetria 2D. Premi «Collega Disto» in alto."); }
 
 /* ---------- avvio ---------- */
 MODES.forEach(([k,t,sub])=>{ const b=document.createElement("button"); b.dataset.m=k; b.innerHTML=t+"<small>"+sub+"</small>"; b.onclick=()=>onMode(k); $("modes").appendChild(b); });
@@ -912,16 +943,20 @@ $("phMode").onclick=()=>{ PH.mode = PH.mode==="p" ? "d" : "p"; PH.p2p=null; try{
 $("bDxf").onclick=fromSheet(exportDxf); $("bSave").onclick=fromSheet(saveFile); $("bOpen").onclick=fromSheet(()=>$("fileIn").click());
 $("bClear").onclick=fromSheet(clearAll); $("bHome").onclick=showStart;
 $("bSound").onclick=toggleSound; $("sSound").onclick=toggleSound;
-$("sNew").onclick=startNew; $("sCont").onclick=()=>{ enterApp(); ok("Rilievo ripreso da dove eri rimasto."); };
-$("sOpen").onclick=()=>$("fileIn").click(); $("sDemo").onclick=()=>{ enterApp(); demo(); };
+$("sNew").onclick=()=>{ demoPick=false; startPage(true); }; $("sBack").onclick=()=>startPage(false);
+let demoPick=false;
+$("sNew2d").onclick=()=>{ if(demoPick){ if(hasData() && !confirm("La prova cancella il rilievo in corso. Continuare?")) return; enterApp(); demo("2d"); } else startNew("2d"); };
+$("sNew3d").onclick=()=>{ if(demoPick){ if(hasData() && !confirm("La prova cancella il rilievo in corso. Continuare?")) return; enterApp(); demo("3d"); } else startNew("3d"); }; $("sCont").onclick=()=>{ enterApp(); ok("Rilievo ripreso da dove eri rimasto."); };
+$("sOpen").onclick=()=>$("fileIn").click(); $("sDemo").onclick=()=>{ demoPick=true; startPage(true); };
 $("bStation").onclick=stationBtn; $("bSkip").onclick=skipRef; $("bFit").onclick=()=>{ resetView(); redraw(); };
 $("fileIn").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ loadObj(JSON.parse(await f.text())); enterApp(); ok("Rilievo aperto: "+f.name); }catch(x){ warn("File non valido."); } e.target.value=""; };
 $("hvar").oninput=e=>{ S.hvar=e.target.value; refresh(); };
 window.addEventListener("resize", ()=>{ redraw(); if(phOpen()) phDraw(); });
 if(window.innerWidth>=900) $("dati").open=true;
 soundLabel();
-try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw); if(d.rooms && d.rooms.some(r=>r.pts.length)) loadObj(d); } }catch(e){}
-setMode("plan"); setHint(); refresh();
+try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw);
+  if((d.rooms && d.rooms.some(r=>r.pts.length)) || (d.p3&&d.p3.length) || d.axes || (d.open&&d.open.length) || (d.refs&&d.refs.length) || d.type==="3d") loadObj(d); } }catch(e){}
+if(!hasData()) setMode("plan"); applyType(); setHint(); refresh();
 // schermata di caricamento, poi menu iniziale
 startInfo(); $("start").hidden=false;
 setTimeout(()=>{ $("splash").classList.add("out"); setTimeout(()=>$("splash").remove(), 400); }, 900);
