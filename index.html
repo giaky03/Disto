@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0b0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>DISTO Rilievo</title>
+<title>MIRA</title>
 <style>
   :root {
     --bg:#0b0b0d; --panel:#15151a; --panel2:#1d1d24; --line:#2b2b33; --fg:#f3f3f5; --muted:#9a9aa5;
@@ -15,21 +15,23 @@
     color-scheme: dark;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  body { padding:calc(8px + env(safe-area-inset-top)) 12px calc(92px + env(safe-area-inset-bottom)); max-width:1400px; margin:0 auto; -webkit-user-select:none; user-select:none; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif; height:100%; }
+  body { display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; padding:env(safe-area-inset-top) 10px 0; max-width:1400px; margin:0 auto; -webkit-user-select:none; user-select:none; }
   button { font:inherit; font-weight:650; color:var(--fg); background:linear-gradient(180deg,#222229,#1b1b21); border:1px solid var(--line); border-radius:12px; padding:10px 12px; min-height:48px; touch-action:manipulation; cursor:pointer;
     box-shadow:0 3px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06); transition:transform .08s, box-shadow .08s; }
   button:active { transform:translateY(1px) scale(.97); background:#26262e; box-shadow:0 1px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04); }
   button:disabled { opacity:.4; box-shadow:none; }
   button.red { background:linear-gradient(180deg,#ef4447,#d42f32); border-color:#e5383b; color:#fff; box-shadow:0 4px 14px rgba(229,56,59,.4), inset 0 1px 0 rgba(255,255,255,.18); }
   button.red:active { background:#c42a2d; }
-  .card, #hintCard, details { box-shadow:0 6px 20px rgba(0,0,0,.45); }
+  [hidden] { display:none !important; }
+
+  /* logo */
+  .logo { font-size:40px; font-weight:900; letter-spacing:4px; color:var(--accent); text-shadow:0 4px 22px rgba(229,56,59,.35); display:flex; align-items:center; gap:10px; }
+  .mark { width:1em; height:1em; flex:none; }
 
   /* caricamento */
   #splash { position:fixed; inset:0; z-index:50; background:radial-gradient(circle at 50% 40%,#1a0d0e,#0b0b0d 65%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; transition:opacity .35s; }
   #splash.out { opacity:0; pointer-events:none; }
-  .logo { font-size:34px; font-weight:850; letter-spacing:.5px; text-shadow:0 4px 18px rgba(0,0,0,.6); }
-  .logo b { color:var(--accent); }
   .spinner { width:54px; height:54px; border-radius:50%; border:5px solid rgba(229,56,59,.18); border-top-color:var(--accent); animation:spin .8s linear infinite; filter:drop-shadow(0 0 10px rgba(229,56,59,.45)); }
   @keyframes spin { to { transform:rotate(360deg); } }
   #splash .sub { color:var(--muted); font-size:14px; }
@@ -37,59 +39,47 @@
   /* menu iniziale */
   #start { position:fixed; inset:0; z-index:40; background:radial-gradient(circle at 50% 0%,#24100f,#0b0b0d 60%); overflow:auto;
     padding:calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; align-items:center; }
-  #start[hidden] { display:none; }
-  #start .logo { margin-bottom:4px; }
-  #start .tag { color:var(--muted); margin-bottom:30px; font-size:15px; }
+  #start .tag { color:var(--muted); margin:6px 0 30px; font-size:15px; }
   #start .list { width:100%; max-width:440px; display:flex; flex-direction:column; gap:12px; }
   #start .list button { display:flex; align-items:center; gap:14px; text-align:left; min-height:72px; padding:12px 16px; border-radius:16px; font-size:18px; }
   #start .list button .ic { width:42px; height:42px; flex:none; border-radius:12px; display:grid; place-items:center; font-size:21px; background:rgba(229,56,59,.15); color:var(--accent2); }
   #start .list button.red .ic { background:rgba(255,255,255,.18); color:#fff; }
   #start .list button span small { display:block; font-size:13px; font-weight:500; color:var(--muted); margin-top:2px; }
   #start .list button.red span small { color:rgba(255,255,255,.85); }
+  #start .back { margin-top:4px; min-height:48px; font-size:15px; }
   #start .foot { display:flex; gap:10px; margin-top:22px; width:100%; max-width:440px; }
   #start .foot button { flex:1; min-height:46px; font-size:15px; }
   #start .ver { color:var(--muted); font-size:12px; margin-top:auto; padding-top:24px; }
-  #bConn.busy::before { width:12px; height:12px; background:none; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:spin .7s linear infinite; }
 
   /* intestazione */
-  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0 10px; background:var(--bg); }
-  .brand { display:flex; align-items:baseline; gap:6px; font-size:20px; font-weight:800; letter-spacing:.3px; }
-  .brand b { color:var(--accent); }
-  .brand span { color:var(--muted); font-weight:600; font-size:15px; }
-  #bConn { display:flex; align-items:center; gap:8px; border-radius:999px; padding:8px 16px; min-height:44px; }
-  #bConn::before { content:""; width:10px; height:10px; border-radius:50%; background:#fff; opacity:.85; }
+  header { flex:none; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; }
+  .brand { display:flex; align-items:center; gap:7px; font-size:21px; font-weight:900; letter-spacing:2px; color:var(--accent); }
+  .badge { font-size:12px; font-weight:800; color:#fff; background:var(--accent); border-radius:6px; padding:2px 6px; letter-spacing:.5px; }
+  #stlabelTop { color:var(--muted); font-weight:600; font-size:13px; letter-spacing:0; }
+  #bConn { display:flex; align-items:center; gap:8px; border-radius:999px; padding:6px 14px; min-height:40px; font-size:15px; }
+  #bConn::before { content:""; width:9px; height:9px; border-radius:50%; background:#fff; opacity:.85; }
   #bConn.on { background:rgba(74,222,128,.12); border-color:rgba(74,222,128,.5); color:var(--ok); }
   #bConn.on::before { background:var(--ok); box-shadow:0 0 0 4px rgba(74,222,128,.2); }
+  #bConn.busy::before { width:11px; height:11px; background:none; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:spin .7s linear infinite; }
 
-  /* istruzione corrente */
-  #hintCard { background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  /* istruzione corrente (compatta) */
+  #hintCard { flex:none; background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:12px; padding:8px 12px; margin-bottom:8px; box-shadow:0 6px 20px rgba(0,0,0,.45); }
   #hintCard.flash-ok { animation:fok .7s ease-out; }
   #hintCard.flash-bad { animation:fbad .9s ease-out; }
   @keyframes fok { 0% { background:rgba(74,222,128,.35); border-left-color:var(--ok); } 100% { background:var(--panel); } }
   @keyframes fbad { 0%,30% { background:rgba(255,77,79,.4); } 100% { background:var(--panel); } }
-  #hint { font-weight:750; font-size:18px; line-height:1.3; color:var(--fg); }
-  #status { color:var(--muted); min-height:1.3em; margin-top:6px; font-size:15px; }
+  #hint { font-weight:750; font-size:16px; line-height:1.25; }
+  #status { color:var(--muted); margin-top:3px; font-size:13.5px; line-height:1.3; }
+  #status:empty { display:none; }
   #status.ok { color:var(--ok); } #status.bad { color:var(--bad); font-weight:650; }
-  #summary { font-weight:650; color:var(--accent2); min-height:1.2em; margin-top:4px; font-size:14px; }
+  #summary { font-weight:650; color:var(--accent2); margin-top:3px; font-size:12.5px; }
+  #summary:empty { display:none; }
+  #statBar { display:flex; gap:8px; margin-top:8px; }
+  #statBar button { flex:1; min-height:42px; font-size:14px; }
 
-  /* modalità */
-  #modes { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:10px; }
-  #modes button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:58px; padding:7px 2px; line-height:1.1; font-size:14.5px; }
-  #modes button small { font-size:10.5px; font-weight:500; color:var(--muted); }
-  #modes button.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 18px rgba(229,56,59,.35); }
-  #modes button.on small { color:rgba(255,255,255,.85); }
-  #modes.m2d { grid-template-columns:repeat(3,1fr); } #modes.m3d { grid-template-columns:repeat(3,1fr); }
-  #modes button.off { display:none; }
-  @media (min-width:760px) { #modes.m2d { grid-template-columns:repeat(6,1fr); } }
-  .badge { font-size:13px; font-weight:800; color:#fff; background:var(--accent); border-radius:6px; padding:2px 7px; margin-left:4px; vertical-align:3px; letter-spacing:.3px; }
-  #start .back { margin-top:4px; min-height:48px; font-size:15px; }
-  #start .list[hidden], #vtog[hidden] { display:none; }
-
-  /* pianta e dati */
-  #wrap { display:grid; grid-template-columns:1fr; gap:10px; }
-  @media (min-width:900px) { #wrap { grid-template-columns:1fr 360px; } }
-  .cvbox { position:relative; }
-  canvas { width:100%; height:52vh; min-height:300px; border:1px solid #34343d; border-radius:14px; background:#1a1a20; display:block; touch-action:none;
+  /* disegno: occupa tutto lo spazio libero */
+  .cvbox { position:relative; flex:1; min-height:0; margin-bottom:8px; }
+  canvas#cv { width:100%; height:100%; border:1px solid #34343d; border-radius:14px; background:#1a1a20; display:block; touch-action:none;
     box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 0 40px rgba(0,0,0,.35); }
   #bFit { position:absolute; right:10px; bottom:10px; min-height:38px; padding:6px 12px; border-radius:999px; background:rgba(29,29,36,.92); font-size:14px; }
   .cvtip { position:absolute; left:12px; bottom:8px; font-size:11.5px; color:var(--muted); pointer-events:none; }
@@ -97,9 +87,41 @@
   #vtog button { min-height:34px; padding:4px 14px; border-radius:999px; border:0; background:none; box-shadow:none; font-size:14px; color:var(--muted); }
   #vtog button.on { background:var(--accent); color:#fff; box-shadow:0 2px 8px rgba(229,56,59,.45); }
 
+  /* barra in basso: 4 tasti */
+  #bar { flex:none; margin:0 -10px; background:rgba(11,11,13,.96); border-top:1px solid var(--line); padding:8px 10px calc(8px + env(safe-area-inset-bottom)); }
+  #bar .in { max-width:1400px; margin:0 auto; display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:7px; }
+  #bar button { min-height:56px; font-size:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; line-height:1.1; padding:6px 4px; }
+  #bar button i { font-style:normal; font-size:19px; line-height:1; }
+  #bMode { border-color:rgba(229,56,59,.6); }
+  #bMode small { font-size:10.5px; color:var(--muted); font-weight:600; letter-spacing:.3px; }
+
+  /* pannelli dal basso */
+  .sheet { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; }
+  .sheet .panel { width:100%; max-width:560px; max-height:88vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-bottom:0; border-radius:18px 18px 0 0; padding:12px 14px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -10px 30px rgba(0,0,0,.5); }
+  .sheet h3 { margin:6px 4px 8px; font-size:13px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.8px; }
+  .sheet .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .sheet .grid button { min-height:50px; text-align:left; }
+  .sheet .grid button.wide { grid-column:1 / -1; }
+  .sheet .ver { color:var(--muted); font-size:12px; text-align:center; margin-top:12px; }
+  .sheet .closer { width:100%; margin-top:12px; }
+  #modes { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  #modes button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:74px; padding:8px 4px; line-height:1.1; font-size:15px; }
+  #modes button i { font-style:normal; font-size:22px; line-height:1; }
+  #modes button small { font-size:11px; font-weight:500; color:var(--muted); }
+  #modes button.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 18px rgba(229,56,59,.35); }
+  #modes button.on small { color:rgba(255,255,255,.85); }
+  #modes button.off { display:none; }
+  .field { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .field label { color:var(--muted); font-size:14px; }
+  #stlabel { margin-left:auto; font-weight:700; color:var(--warn); font-size:13px; background:rgba(255,176,32,.12); border:1px solid rgba(255,176,32,.35); padding:4px 10px; border-radius:999px; }
+  #bStation { border-color:rgba(255,176,32,.55); color:var(--warn); }
+  input[type=text] { font:inherit; font-weight:700; width:96px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); text-align:center; -webkit-user-select:text; user-select:text; }
+  input[type=text]:focus { outline:2px solid var(--accent); border-color:transparent; }
+  #bClear { color:var(--bad); border-color:rgba(255,77,79,.45); }
+  pre { margin:0; padding:10px 4px; font:13px/1.5 ui-monospace,Menlo,Consolas,monospace; overflow:auto; max-height:60vh; white-space:pre; color:#d8d8de; -webkit-user-select:text; user-select:text; }
+
   /* foto quotate */
   #photo { position:fixed; inset:0; z-index:30; background:var(--bg); display:flex; flex-direction:column; padding:calc(6px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom)); gap:8px; }
-  #photo[hidden] { display:none; }
   #photo .top { display:flex; align-items:center; gap:8px; }
   #photo .top .ttl { font-weight:800; font-size:18px; flex:1; } #photo .top .ttl b { color:var(--accent); }
   #photo .top button { min-height:40px; padding:6px 12px; }
@@ -113,47 +135,16 @@
   #photo .tools { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
   #photo .tools button { min-height:50px; font-size:13.5px; padding:6px 4px; line-height:1.15; }
   #phMode { font-size:12.5px !important; }
-
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; }
-  #stationCard { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-  #stationCard .field { display:flex; align-items:center; gap:8px; flex:1 1 100%; }
-  #stationCard label { color:var(--muted); font-size:14px; }
-  #stlabel { margin-left:auto; font-weight:700; color:var(--warn); font-size:14px; background:rgba(255,176,32,.12); border:1px solid rgba(255,176,32,.35); padding:4px 10px; border-radius:999px; }
-  #bStation { flex:1 1 0; border-color:rgba(255,176,32,.55); color:var(--warn); }
-  #bSkip { flex:1 1 0; }
-  input[type=text] { font:inherit; font-weight:700; width:96px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); text-align:center; -webkit-user-select:text; user-select:text; }
-  input[type=text]:focus { outline:2px solid var(--accent); border-color:transparent; }
-
-  details { background:var(--panel); border:1px solid var(--line); border-radius:14px; }
-  details summary { padding:12px 14px; font-weight:700; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
-  details summary::after { content:"▾"; color:var(--muted); }
-  details[open] summary::after { content:"▴"; }
-  pre { margin:0; padding:4px 14px 14px; font:13px/1.5 ui-monospace,Menlo,Consolas,monospace; overflow:auto; max-height:52vh; white-space:pre; color:#d8d8de; -webkit-user-select:text; user-select:text; }
-
-  /* barra in basso */
-  #bar { position:fixed; left:0; right:0; bottom:0; z-index:10; background:rgba(11,11,13,.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-top:1px solid var(--line); padding:8px 10px calc(8px + env(safe-area-inset-bottom)); }
-  #bar .in { max-width:1400px; margin:0 auto; display:grid; grid-template-columns:1.25fr 1fr 1fr 1fr 1fr; gap:6px; }
-  #bar button { min-height:54px; font-size:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; line-height:1.1; padding:6px 4px; }
-  #bar button i { font-style:normal; font-size:19px; line-height:1; }
-
-  /* menu */
-  #sheet { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; }
-  #sheet[hidden] { display:none; }
-  #sheet .panel { width:100%; max-width:560px; background:var(--panel); border:1px solid var(--line); border-bottom:0; border-radius:18px 18px 0 0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); }
-  #sheet h3 { margin:2px 4px 10px; font-size:15px; color:var(--muted); font-weight:600; }
-  #sheet .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  #sheet .grid button { min-height:52px; text-align:left; }
-  #sheet .grid button.wide { grid-column:1 / -1; }
-  #bClear { color:var(--bad); border-color:rgba(255,77,79,.45); }
-  #sheet .ver { color:var(--muted); font-size:12px; text-align:center; margin-top:12px; }
 </style>
 </head>
 <body>
-<div id="splash"><div class="logo"><b>DISTO</b> Rilievo</div><div class="spinner"></div><div class="sub">Caricamento…</div></div>
+<svg width="0" height="0" style="position:absolute"><symbol id="mk" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="16" cy="16" r="3.2" fill="currentColor"/><path d="M16 1v7M16 24v7M1 16h7M24 16h7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol></svg>
+
+<div id="splash"><div class="logo"><svg class="mark"><use href="#mk"/></svg>MIRA</div><div class="spinner"></div><div class="sub">Caricamento…</div></div>
 
 <div id="start" hidden>
-  <div class="logo"><b>DISTO</b> Rilievo</div>
-  <div class="tag">Rilievo con Leica DISTO X6 P2P</div>
+  <div class="logo"><svg class="mark"><use href="#mk"/></svg>MIRA</div>
+  <div class="tag">Rilievi laser con Leica DISTO X6 P2P</div>
   <div class="list" id="sType" hidden>
     <button id="sNew2d" class="red"><div class="ic">📐</div><span>Planimetria 2D<small>Stanze, misure, altezze, finestre e porte</small></span></button>
     <button id="sNew3d" class="red"><div class="ic">🧊</div><span>Rilievo 3D<small>Assi XYZ, punti con X Y Z reali, vista 3D</small></span></button>
@@ -163,16 +154,16 @@
     <button id="sNew" class="red"><div class="ic">＋</div><span>Nuovo rilievo<small>Planimetria 2D o rilievo 3D</small></span></button>
     <button id="sCont"><div class="ic">▶</div><span>Continua rilievo<small id="sContInfo">Nessun rilievo in corso</small></span></button>
     <button id="sOpen"><div class="ic">📂</div><span>Apri rilievo salvato<small>Da un file .json</small></span></button>
-    <button id="sDemo"><div class="ic">◇</div><span>Prova senza Disto<small>Stanza di esempio</small></span></button>
+    <button id="sDemo"><div class="ic">◇</div><span>Prova senza Disto<small>Esempio 2D o 3D</small></span></button>
   </div>
   <div class="foot">
     <button id="sSound">🔊 Suono: sì</button>
   </div>
-  <div class="ver">versione 5 · 27/10/2026</div>
+  <div class="ver">MIRA · versione 6 · 27/10/2026</div>
 </div>
 
 <header>
-  <div class="brand"><b>DISTO</b><span class="badge" id="typeBadge">2D</span> <span id="stlabelTop"></span></div>
+  <div class="brand"><svg class="mark"><use href="#mk"/></svg>MIRA<span class="badge" id="typeBadge">2D</span><span id="stlabelTop"></span></div>
   <button id="bConn">Collega Disto</button>
 </header>
 
@@ -180,41 +171,45 @@
   <div id="hint"></div>
   <div id="status">Non collegato</div>
   <div id="summary"></div>
+  <div id="statBar" hidden><button id="bCalc" class="red">Calcola stazione</button><button id="bSkip2">Salta riferimento</button></div>
 </div>
 
-<div id="modes"></div>
-
-<div id="wrap">
-  <div>
-    <div class="cvbox">
-      <canvas id="cv"></canvas>
-      <div id="vtog"><button data-v="2d" class="on">Pianta</button><button data-v="3d">3D</button></div>
-      <button id="bFit" hidden>⤢ Adatta</button>
-      <div class="cvtip" id="cvtip">Due dita: zoom · Un dito: sposta</div>
-    </div>
-    <div id="stationCard" class="card">
-      <div class="field">
-        <label for="hvar">Altezza strumento</label>
-        <input id="hvar" type="text" inputmode="decimal" autocomplete="off" placeholder="m">
-        <span id="stlabel"></span>
-      </div>
-      <button id="bStation">Nuova stazione</button>
-      <button id="bSkip" disabled>Salta riferimento</button>
-    </div>
-  </div>
-  <details id="dati">
-    <summary>Dati misurati</summary>
-    <pre id="lst"></pre>
-  </details>
+<div class="cvbox">
+  <canvas id="cv"></canvas>
+  <div id="vtog"><button data-v="2d" class="on">Pianta</button><button data-v="3d">3D</button></div>
+  <button id="bFit" hidden>⤢ Adatta</button>
+  <div class="cvtip" id="cvtip">Due dita: zoom · Un dito: sposta</div>
 </div>
 
 <nav id="bar"><div class="in">
-  <button id="bUndo" class="red"><i>↶</i>Annulla</button>
+  <button id="bMode"><i id="bModeI">📐</i><span id="bModeT">Pianta</span><small>STRUMENTO ▴</small></button>
   <button id="bClose"><i>⬠</i>Chiudi</button>
-  <button id="bRoom"><i>＋</i><span id="bRoomT">Stanza</span></button>
-  <button id="bPhoto"><i>📷</i>Foto</button>
+  <button id="bUndo" class="red"><i>↶</i>Annulla</button>
   <button id="bMenu"><i>☰</i>Menu</button>
 </div></nav>
+
+<div id="tools" class="sheet" hidden>
+  <div class="panel">
+    <h3>Strumento</h3>
+    <div id="modes"></div>
+    <h3>Azioni</h3>
+    <div class="grid">
+      <button id="bRoom">＋ <span id="bRoomT">Nuova stanza</span></button>
+      <button id="bPhoto">📷 Foto quotate</button>
+    </div>
+    <h3>Stazione</h3>
+    <div class="field">
+      <label for="hvar">Altezza strumento (m)</label>
+      <input id="hvar" type="text" inputmode="decimal" autocomplete="off" placeholder="m">
+      <span id="stlabel"></span>
+    </div>
+    <div class="grid">
+      <button id="bStation">Nuova stazione</button>
+      <button id="bSkip" disabled>Salta riferimento</button>
+    </div>
+    <button id="bToolsClose" class="closer red">Chiudi</button>
+  </div>
+</div>
 
 <div id="photo" hidden>
   <div class="top">
@@ -238,20 +233,29 @@
   <input id="phIn" type="file" accept="image/*" hidden>
 </div>
 
-<div id="sheet" hidden>
+<div id="sheet" class="sheet" hidden>
   <div class="panel">
     <h3>Rilievo</h3>
     <div class="grid">
       <button id="bDxf">⬇ Esporta DXF</button>
       <button id="bSave">💾 Salva rilievo</button>
       <button id="bOpen">📂 Apri rilievo</button>
+      <button id="bData">📋 Dati misurati</button>
       <button id="bSound">🔊 Suono: sì</button>
-      <button id="bAll" class="wide">Collega: mostra tutti i dispositivi</button>
       <button id="bHome">🏠 Menu iniziale</button>
-      <button id="bClear">Azzera tutto</button>
-      <button id="bSheetClose" class="wide red">Chiudi menu</button>
+      <button id="bAll" class="wide">Collega: mostra tutti i dispositivi</button>
+      <button id="bClear" class="wide">Azzera tutto</button>
     </div>
-    <div class="ver">DISTO Rilievo · versione 5 · 27/10/2026</div>
+    <button id="bSheetClose" class="closer red">Chiudi menu</button>
+    <div class="ver">MIRA · versione 6 · 27/10/2026</div>
+  </div>
+</div>
+
+<div id="dataSheet" class="sheet" hidden>
+  <div class="panel">
+    <h3>Dati misurati</h3>
+    <pre id="lst"></pre>
+    <button id="bDataClose" class="closer red">Chiudi</button>
   </div>
 </div>
 <input id="fileIn" type="file" accept=".json,application/json" hidden>
@@ -261,7 +265,7 @@
 const SERVICE = "3ab10100-f831-4395-b29d-570977d5bf94";
 const U = n => "3ab10" + n + "-f831-4395-b29d-570977d5bf94";
 const ENABLE = ["10d","10f","110","111","112","121","122"];
-const MODES = [["plan","Pianta","quota 0"],["floor","Pavimento","h strumento"],["ceil","Soffitto","altezza"],["window","Finestra","4 punti"],["door","Porta","3 punti"],["refs","Riferim.","stazioni"],["axes","Assi XYZ","O · X · Y"],["p3d","Punti 3D","rilievo 3D"]];
+const MODES = [["plan","Pianta","spigoli a quota 0","📐"],["floor","Pavimento","h strumento","⬇"],["ceil","Soffitto","altezza stanza","⬆"],["window","Finestra","4 punti","🪟"],["door","Porta","3 punti","🚪"],["refs","Riferimenti","per le stazioni","◆"],["axes","Assi XYZ","origine · X · Y","✛"],["p3d","Punti 3D","X Y Z reali","📍"]];
 const AXSTEPS = ["ASSI 1/3 — punta l'ORIGINE (0,0,0), es. uno spigolo a pavimento","ASSI 2/3 — punta un punto sull'ASSE X (verso X positivo), meglio lontano","ASSI 3/3 — punta un punto qualsiasi dalla parte delle Y POSITIVE"];
 const WSTEPS = ["FINESTRA 1/4 — punta lo spigolo SINISTRO","FINESTRA 2/4 — punta lo spigolo DESTRO","FINESTRA 3/4 — punta il DAVANZALE (parapetto)","FINESTRA 4/4 — punta il bordo ALTO"];
 const DSTEPS = ["PORTA 1/3 — punta lo spigolo SINISTRO","PORTA 2/3 — punta lo spigolo DESTRO","PORTA 3/3 — punta il bordo ALTO"];
@@ -369,7 +373,8 @@ function measured(){ pulse("ok"); beep(1320,110,0,0.5); try{ navigator.vibrate&&
 
 /* ---------- modalità ---------- */
 function setMode(m){ mode=m; document.querySelectorAll("#modes button").forEach(b=>b.classList.toggle("on", b.dataset.m===m));
-  $("bRoomT").textContent = m==="p3d" ? "Linea" : "Stanza"; }
+  $("bRoomT").textContent = m==="p3d" ? "Nuova linea 3D" : "Nuova stanza";
+  const md=MODES.find(x=>x[0]===m); $("bModeT").textContent = md ? md[1] : "Stazione"; $("bModeI").textContent = md ? md[3] : "◆"; }
 function cancelStation(){ if(stat){ stat=null; undo=undo.filter(k=>k[0]!=="sref"); $("bStation").textContent="Nuova stazione"; $("bSkip").disabled=true; } }
 function onMode(m){ cancelStation(); partial=null; undo=undo.filter(k=>k[0]!=="partial"); setMode(m); setHint(); refresh(); }
 function setHint(){ let t; const n=S.stations.length;
@@ -382,7 +387,7 @@ function setHint(){ let t; const n=S.stations.length;
   else if(mode==="p3d") t = S.c3.includes(S.line3) ? "PUNTI 3D · LINEA "+(S.line3+2)+" — punta il primo punto (X, Y e Z reali)" : "PUNTI 3D · LINEA "+(S.line3+1)+" — punta il punto "+(S.p3.filter(x=>x.l===S.line3).length+1)+" (X, Y e Z reali)"+(S.axes?"":". Consiglio: prima definisci gli «Assi XYZ».");
   else if(HINTS[mode]) t=HINTS[mode];
   else t=(mode==="window"?WSTEPS:DSTEPS)[partial?partial.steps.length:0];
-  $("hint").textContent=t; $("stlabel").textContent="Stazione S"+n; $("stlabelTop").textContent="Rilievo · S"+n; }
+  $("hint").textContent=t; $("stlabel").textContent="Stazione S"+n; $("stlabelTop").textContent="S"+n; $("statBar").hidden=!stat; }
 /* tipo di rilievo: planimetria 2D o rilievo 3D, ognuno con i suoi strumenti */
 function applyType(){ const is3=S.type==="3d", list=is3?MODES3D:MODES2D;
   $("modes").className = is3 ? "m3d" : "m2d";
@@ -428,7 +433,7 @@ function onMeasure(m){
   else if(mode==="axes"){ if(!axesStep(p)) return; }
   else if(mode==="p3d"){ if(S.c3.includes(S.line3)) S.line3++; S.p3.push({p, l:S.line3}); undo.push(["p3"]); const q=P3(S.p3[S.p3.length-1]);
     ok("T"+S.p3.length+"   X "+f3(q[0]/1000)+"   Y "+f3(q[1]/1000)+"   Z "+f3(q[2]/1000)); }
-  else if(H===null){ warn("Prima serve l'altezza dello strumento: usa «Pavimento» (punta il pavimento) o scrivila sotto la pianta."); return; }
+  else if(H===null){ warn("Prima serve l'altezza dello strumento: usa «Pavimento» (punta il pavimento) o scrivila in Strumento → Stazione."); return; }
   else if(mode==="ceil"){ const h=p[2]/1000+H; S.ceil.push({p, h}); undo.push(["ceil"]); ok("Altezza soffitto = "+f3(h)+" m"); }
   else openingStep(mode, p, H);
   measured(); setHint(); refresh(); ensureVisible(p); }
@@ -781,6 +786,8 @@ function dbDo(fn){ try{ if(idb){ const tx=idb.transaction("foto","readwrite"); f
 async function dbLoad(){ await dbOpen(); if(!idb) return; await new Promise(res=>{ try{ const r=idb.transaction("foto").objectStore("foto").getAll();
   r.onsuccess=()=>{ PH.list=(r.result||[]).sort((a,b)=>a.id-b.id); res(); }; r.onerror=()=>res(); }catch(e){ res(); } }); }
 function phStore(){ const f=phCur(); if(!f) return; clearTimeout(phSaveT); phSaveT=setTimeout(()=>dbDo(s=>s.put(f)), 250); }
+function phFlush(){ if(phSaveT){ clearTimeout(phSaveT); phSaveT=null; const f=phCur(); if(f) dbDo(s=>s.put(f)); } }
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) phFlush(); });
 function phMsg(t, bad){ const e=$("phBar"); e.textContent=t; e.classList.toggle("bad", !!bad); if(bad){ pulse("bad"); beep(330,160,0,0.45); beep(260,220,0.2,0.45); } }
 function phModeLabel(){ $("phMode").textContent = PH.mode==="p" ? "Misura: P2P (2 punti)" : "Misura: distanza"; }
 function phNav(){ $("phNum").textContent = PH.list.length ? (PH.i+1)+"/"+PH.list.length : "0/0";
@@ -794,7 +801,7 @@ function phHint(){ const f=phCur();
 }
 async function openPhoto(){ $("photo").hidden=false; if(!PH.list.length) await dbLoad(); if(PH.i<0 && PH.list.length) PH.i=PH.list.length-1;
   PH.sel=-1; PH.p2p=null; phModeLabel(); phLoadImg(); phNav(); phHint(); }
-function closePhoto(){ $("photo").hidden=true; PH.drag=null; PH.p2p=null; setHint(); refresh(); }
+function closePhoto(){ phFlush(); $("photo").hidden=true; PH.drag=null; PH.p2p=null; setHint(); refresh(); }
 function phLoadImg(){ const f=phCur(); PH.img=null; PH.v={x:0,y:0,z:1}; PH.und=[]; phDraw(); if(!f) return;
   const im=new Image(); im.onload=()=>{ if(phCur()===f){ PH.img=im; phDraw(); } }; im.src=f.src; }
 function phGo(d){ PH.i=Math.max(0,Math.min(PH.list.length-1,PH.i+d)); PH.sel=-1; PH.p2p=null; phLoadImg(); phNav(); phHint(); }
@@ -928,12 +935,17 @@ function startNew(type){
   else info(con ? "Planimetria 2D. Punta il primo spigolo." : "Planimetria 2D. Premi «Collega Disto» in alto."); }
 
 /* ---------- avvio ---------- */
-MODES.forEach(([k,t,sub])=>{ const b=document.createElement("button"); b.dataset.m=k; b.innerHTML=t+"<small>"+sub+"</small>"; b.onclick=()=>onMode(k); $("modes").appendChild(b); });
-const sheet=$("sheet"), openSheet=()=>{ sheet.hidden=false; }, closeSheet=()=>{ sheet.hidden=true; };
-$("bMenu").onclick=openSheet; $("bSheetClose").onclick=closeSheet; sheet.addEventListener("click", e=>{ if(e.target===sheet) closeSheet(); });
+MODES.forEach(([k,t,sub,ic])=>{ const b=document.createElement("button"); b.dataset.m=k; b.innerHTML="<i>"+ic+"</i>"+t+"<small>"+sub+"</small>"; b.onclick=()=>{ closeSheet(); onMode(k); }; $("modes").appendChild(b); });
+const closeSheet=()=>{ document.querySelectorAll(".sheet").forEach(x=>x.hidden=true); };
+const openSheet=()=>{ closeSheet(); $("sheet").hidden=false; };
+document.querySelectorAll(".sheet").forEach(sh=>sh.addEventListener("click", e=>{ if(e.target===sh) closeSheet(); }));
+$("bMenu").onclick=openSheet; $("bSheetClose").onclick=closeSheet; $("bToolsClose").onclick=closeSheet; $("bDataClose").onclick=closeSheet;
+$("bMode").onclick=()=>{ closeSheet(); $("tools").hidden=false; };
+$("bData").onclick=()=>{ closeSheet(); $("dataSheet").hidden=false; };
+$("bCalc").onclick=()=>stationBtn(); $("bSkip2").onclick=()=>skipRef();
 const fromSheet = fn => () => { closeSheet(); fn(); };
 $("bConn").onclick=()=>connect(false); $("bAll").onclick=fromSheet(()=>connect(true));
-$("bUndo").onclick=undoLast; $("bClose").onclick=toggleClose; $("bRoom").onclick=newRoomBtn; $("bPhoto").onclick=openPhoto;
+$("bUndo").onclick=undoLast; $("bClose").onclick=toggleClose; $("bRoom").onclick=fromSheet(newRoomBtn); $("bPhoto").onclick=fromSheet(openPhoto);
 document.querySelectorAll("#vtog button").forEach(b=>b.onclick=()=>setView3d(b.dataset.v==="3d"));
 $("phClose").onclick=closePhoto; $("phShot").onclick=()=>$("phIn").click(); $("phConn").onclick=()=>connect(false);
 $("phIn").onchange=e=>{ const f=e.target.files[0]; if(f) phTake(f); e.target.value=""; };
@@ -948,11 +960,10 @@ let demoPick=false;
 $("sNew2d").onclick=()=>{ if(demoPick){ if(hasData() && !confirm("La prova cancella il rilievo in corso. Continuare?")) return; enterApp(); demo("2d"); } else startNew("2d"); };
 $("sNew3d").onclick=()=>{ if(demoPick){ if(hasData() && !confirm("La prova cancella il rilievo in corso. Continuare?")) return; enterApp(); demo("3d"); } else startNew("3d"); }; $("sCont").onclick=()=>{ enterApp(); ok("Rilievo ripreso da dove eri rimasto."); };
 $("sOpen").onclick=()=>$("fileIn").click(); $("sDemo").onclick=()=>{ demoPick=true; startPage(true); };
-$("bStation").onclick=stationBtn; $("bSkip").onclick=skipRef; $("bFit").onclick=()=>{ resetView(); redraw(); };
+$("bStation").onclick=fromSheet(stationBtn); $("bSkip").onclick=fromSheet(skipRef); $("bFit").onclick=()=>{ resetView(); redraw(); };
 $("fileIn").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ loadObj(JSON.parse(await f.text())); enterApp(); ok("Rilievo aperto: "+f.name); }catch(x){ warn("File non valido."); } e.target.value=""; };
 $("hvar").oninput=e=>{ S.hvar=e.target.value; refresh(); };
 window.addEventListener("resize", ()=>{ redraw(); if(phOpen()) phDraw(); });
-if(window.innerWidth>=900) $("dati").open=true;
 soundLabel();
 try{ const raw=localStorage.getItem("distoRilievo"); if(raw){ const d=JSON.parse(raw);
   if((d.rooms && d.rooms.some(r=>r.pts.length)) || (d.p3&&d.p3.length) || d.axes || (d.open&&d.open.length) || (d.refs&&d.refs.length) || d.type==="3d") loadObj(d); } }catch(e){}
